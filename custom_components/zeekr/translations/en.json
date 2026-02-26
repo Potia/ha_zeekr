@@ -1,0 +1,34 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Zeekr Configuration",
+        "description": "Setup Zeekr vehicle integration with Home Assistant",
+        "data": {
+          "mobile": "Mobile Number (e.g., 13812345678)"
+        }
+      },
+      "sms_code": {
+        "title": "SMS Code Verification",
+        "description": "Enter the 4-digit SMS code",
+        "data": {
+          "sms_code": "SMS Code"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to Zeekr API",
+      "invalid_auth": "Invalid SMS code",
+      "cannot_send_sms": "Failed to send SMS code",
+      "cannot_get_auth_code": "Failed to get auth code",
+      "cannot_get_secure_tokens": "Failed to get secure tokens",
+      "invalid_phone": "Invalid phone number",
+      "invalid_code": "Invalid SMS code",
+      "no_jwt_token": "No JWT token received",
+      "import_error": "Import error - check logs"
+    },
+    "abort": {
+      "auth_successful": "Authentication successful! Your Zeekr vehicle is now integrated with Home Assistant."
+    }
+  }
+}

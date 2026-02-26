@@ -1,0 +1,17 @@
+{
+  "domain": "zeekr",
+  "name": "Zeekr Vehicle Integration",
+  "codeowners": ["@asafov_s"],
+  "config_flow": true,
+  "documentation": "https://github.com/Potia/ha_zeekr",
+  "requirements": [
+    "requests==2.31.0",
+    "cryptography==41.0.7",
+    "pycryptodome==3.19.0",
+    "schedule==1.2.0",
+    "voluptuous==0.13.1"
+  ],
+  "version": "1.0.0",
+  "issue_tracker": "https://github.com/Potia/ha_zeekr/issues",
+  "homeassistant": "2023.12.0"
+}
