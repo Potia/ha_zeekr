@@ -60,3 +60,8 @@ requirements.txt
 # Git
 .git/
 .gitignore
+# Игнорировать настройки PyCharm
+.idea/
+
+# Игнорировать файлы macOS
+.DS_Store
