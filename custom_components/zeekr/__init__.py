@@ -34,7 +34,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         _LOGGER.debug(f"Current dir: {current_dir}")
 
-        # Импортируем необходимые модули
+        # Импортируем необходимые модули (абсолютно)
         from zeekr_api import ZeekrAPI
         from storage import token_storage
 
@@ -72,7 +72,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.error(f"❌ Failed to create API client: {e}")
             return False
 
-        # Импортируем coordinator
+        # Импортируем coordinator (абсолютно, без точки)
         from coordinator import ZeekrDataCoordinator
 
         # Создаем coordinator
@@ -80,7 +80,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             coordinator = ZeekrDataCoordinator(hass, api_client)
             _LOGGER.info("✅ Coordinator created")
         except Exception as e:
-            _LOGGER.error(f"❌ Failed to create coordinator: {e}")
+            _LOGGER.error(f"❌ Failed to create coordinator: {e}", exc_info=True)
             return False
 
         # Получаем первые данные
@@ -99,7 +99,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
             _LOGGER.info(f"✅ Platforms configured: {PLATFORMS}")
         except Exception as e:
-            _LOGGER.error(f"❌ Failed to set up platforms: {e}")
+            _LOGGER.error(f"❌ Failed to set up platforms: {e}", exc_info=True)
             return False
 
         _LOGGER.info("🎉 Zeekr integration setup COMPLETE!")

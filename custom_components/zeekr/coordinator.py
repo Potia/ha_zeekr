@@ -10,14 +10,15 @@ from typing import Dict, Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, DEFAULT_SCAN_INTERVAL
-
-_LOGGER = logging.getLogger(__name__)
-
 # Добавляем путь для импорта
 current_dir = os.path.dirname(__file__)
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
+
+# Импортируем после добавления пути
+from const import DOMAIN, DEFAULT_SCAN_INTERVAL
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class ZeekrDataCoordinator(DataUpdateCoordinator):
