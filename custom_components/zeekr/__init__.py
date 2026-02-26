@@ -102,6 +102,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.error(f"❌ Failed to set up platforms: {e}", exc_info=True)
             return False
 
+        # Регистрируем services
+        try:
+            from services import async_setup_services
+            await async_setup_services(hass)
+            _LOGGER.info("✅ Services registered")
+        except Exception as e:
+            _LOGGER.warning(f"⚠️  Failed to set up services: {e}")
+
         _LOGGER.info("🎉 Zeekr integration setup COMPLETE!")
 
         return True
@@ -123,6 +131,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if unload_ok:
             hass.data[DOMAIN].pop(entry.entry_id)
             _LOGGER.info("✅ Zeekr integration unloaded successfully")
+
+            # Выгружаем services если больше нет интеграций
+            if not hass.data[DOMAIN]:
+                try:
+                    from services import async_unload_services
+                    await async_unload_services(hass)
+                except Exception as e:
+                    _LOGGER.warning(f"⚠️  Failed to unload services: {e}")
 
         return unload_ok
 
