@@ -11,7 +11,6 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
-from .coordinator import ZeekrDataCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,7 +24,7 @@ PLATFORMS: Final = [
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Zeekr integration"""
 
-    _LOGGER.debug("Setting up Zeekr integration")
+    _LOGGER.info(f"🔧 Setting up Zeekr integration for entry {entry.entry_id}")
 
     try:
         # Добавляем текущую папку в sys.path
@@ -33,57 +32,90 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if current_dir not in sys.path:
             sys.path.insert(0, current_dir)
 
+        _LOGGER.debug(f"Current dir: {current_dir}")
+
         # Импортируем необходимые модули
         from zeekr_api import ZeekrAPI
         from storage import token_storage
+
+        _LOGGER.debug("Modules imported successfully")
 
         # Загружаем токены
         tokens = token_storage.load_tokens()
 
         if not tokens:
-            _LOGGER.error("No tokens found, cannot setup Zeekr integration")
+            _LOGGER.error("❌ No tokens found in storage")
             return False
+
+        _LOGGER.info(f"✅ Tokens loaded, keys: {list(tokens.keys())}")
 
         # Проверяем необходимые поля
         required_fields = ['accessToken', 'userId', 'clientId', 'device_id']
-        for field in required_fields:
-            if field not in tokens:
-                _LOGGER.error(f"Missing required token field: {field}")
-                return False
+        missing_fields = [f for f in required_fields if f not in tokens or not tokens[f]]
+
+        if missing_fields:
+            _LOGGER.error(f"❌ Missing required token fields: {missing_fields}")
+            return False
+
+        _LOGGER.info("✅ All required fields present")
 
         # Создаем API клиент
-        api_client = ZeekrAPI(
-            access_token=tokens.get('accessToken'),
-            user_id=tokens.get('userId'),
-            client_id=tokens.get('clientId'),
-            device_id=tokens.get('device_id')
-        )
+        try:
+            api_client = ZeekrAPI(
+                access_token=tokens.get('accessToken'),
+                user_id=tokens.get('userId'),
+                client_id=tokens.get('clientId'),
+                device_id=tokens.get('device_id')
+            )
+            _LOGGER.info("✅ API client created")
+        except Exception as e:
+            _LOGGER.error(f"❌ Failed to create API client: {e}")
+            return False
+
+        # Импортируем coordinator
+        from coordinator import ZeekrDataCoordinator
 
         # Создаем coordinator
-        coordinator = ZeekrDataCoordinator(hass, api_client)
+        try:
+            coordinator = ZeekrDataCoordinator(hass, api_client)
+            _LOGGER.info("✅ Coordinator created")
+        except Exception as e:
+            _LOGGER.error(f"❌ Failed to create coordinator: {e}")
+            return False
 
         # Получаем первые данные
-        await coordinator.async_config_entry_first_refresh()
+        try:
+            await coordinator.async_config_entry_first_refresh()
+            _LOGGER.info("✅ First data refresh successful")
+        except Exception as e:
+            _LOGGER.error(f"⚠️  First refresh failed (will retry): {e}")
+            # Не возвращаем False, дадим еще один шанс
 
         # Сохраняем coordinator в hass.data
         hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+        _LOGGER.info(f"✅ Coordinator stored in hass.data")
 
         # Устанавливаем platforms
-        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        try:
+            await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+            _LOGGER.info(f"✅ Platforms set up: {PLATFORMS}")
+        except Exception as e:
+            _LOGGER.error(f"❌ Failed to set up platforms: {e}")
+            return False
 
-        _LOGGER.info("Zeekr integration setup successfully")
+        _LOGGER.info("✅✅✅ Zeekr integration setup successfully!")
 
         return True
 
     except Exception as err:
-        _LOGGER.error(f"Error setting up Zeekr integration: {err}", exc_info=True)
+        _LOGGER.error(f"❌ Error setting up Zeekr integration: {err}", exc_info=True)
         return False
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload Zeekr integration"""
 
-    _LOGGER.debug("Unloading Zeekr integration")
+    _LOGGER.debug(f"Unloading Zeekr integration for entry {entry.entry_id}")
 
     try:
         # Выгружаем все platforms
@@ -91,9 +123,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         if unload_ok:
             hass.data[DOMAIN].pop(entry.entry_id)
+            _LOGGER.info("✅ Zeekr integration unloaded successfully")
 
         return unload_ok
 
     except Exception as err:
-        _LOGGER.error(f"Error unloading Zeekr integration: {err}")
+        _LOGGER.error(f"❌ Error unloading Zeekr integration: {err}")
         return False
