@@ -166,10 +166,21 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         )
 
                     # Сохраняем токены
+                    _LOGGER.info(f"Saving tokens: {list(secure_tokens.keys())}")
+
                     def save_tokens():
+                        print(f"[ConfigFlow] Attempting to save tokens to {token_storage.filename}")
                         token_storage.save_tokens(secure_tokens)
+                        # Проверяем что сохранилось
+                        import os
+                        if os.path.exists(token_storage.filename):
+                            print(f"[ConfigFlow] ✅ Файл создан: {token_storage.filename}")
+                        else:
+                            print(f"[ConfigFlow] ❌ Файл не создан!")
 
                     await self.hass.async_add_executor_job(save_tokens)
+
+                    _LOGGER.info("Tokens saved successfully")
 
                     _LOGGER.info("Authentication successful!")
 
