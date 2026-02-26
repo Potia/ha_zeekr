@@ -439,29 +439,25 @@ class ZeekrParkTimeSensor(ZeekrBaseSensor):
 
     _attr_name = "Park Time"
     _attr_icon = "mdi:clock"
-    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def _get_sensor_type(self) -> str:
         return "park_time"
 
     @property
     def native_value(self) -> str:
-        """Return park time"""
+        """Return park time as formatted text"""
         parser = self._get_parser()
         if parser:
             park_time_ms = int(parser.data.get('parkTime', {}).get('status', 0))
-            if park_time_ms == 0:
-                return "Едет / Не припаркован"
 
-            # Преобразуем миллисекунды в время припаркованности
+            if park_time_ms == 0:
+                return "Не припаркован"
+
             from datetime import datetime
             park_datetime = datetime.fromtimestamp(park_time_ms / 1000)
             current_time = datetime.now()
-
-            # Вычисляем как долго припаркован
             park_duration = current_time - park_datetime
 
-            # Форматируем в дни, часы, минуты
             total_seconds = int(park_duration.total_seconds())
             days = total_seconds // 86400
             hours = (total_seconds % 86400) // 3600
@@ -473,7 +469,8 @@ class ZeekrParkTimeSensor(ZeekrBaseSensor):
                 return f"{hours}ч {minutes}м припаркован"
             else:
                 return f"{minutes}м припаркован"
-        return None
+
+        return "N/A"
 
     @property
     def extra_state_attributes(self) -> Dict[str, Any]:
@@ -481,6 +478,7 @@ class ZeekrParkTimeSensor(ZeekrBaseSensor):
         parser = self._get_parser()
         if parser:
             park_time_ms = int(parser.data.get('parkTime', {}).get('status', 0))
+
             if park_time_ms > 0:
                 from datetime import datetime
                 park_datetime = datetime.fromtimestamp(park_time_ms / 1000)
@@ -495,14 +493,13 @@ class ZeekrLastUpdateTimeSensor(ZeekrBaseSensor):
 
     _attr_name = "Last Update Time"
     _attr_icon = "mdi:cloud-upload"
-    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def _get_sensor_type(self) -> str:
         return "last_update_time"
 
     @property
     def native_value(self) -> str:
-        """Return last update time"""
+        """Return last update time as formatted string"""
         parser = self._get_parser()
         if parser:
             timestamp = int(parser.data.get('updateTime', 0))
