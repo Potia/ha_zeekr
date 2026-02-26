@@ -23,7 +23,6 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, ICON_BATTERY, ICON_TEMPERATURE, ICON_CAR
 from .coordinator import ZeekrDataCoordinator
-from vehicle_parser import VehicleDataParser
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -89,10 +88,11 @@ class ZeekrBaseSensor(CoordinatorEntity, SensorEntity):
         """Override in subclasses"""
         return "sensor"
 
-    def _get_parser(self) -> VehicleDataParser:
+    def _get_parser(self):
         """Get parser for current vehicle data"""
         if self.vin not in self.coordinator.data:
             return None
+        from vehicle_parser import VehicleDataParser
         return VehicleDataParser(self.coordinator.data[self.vin])
 
     @callback
@@ -409,134 +409,137 @@ class ZeekrInteriorPM25Sensor(ZeekrBaseSensor):
             return pollution['interior_pm25']
         return None
 
-    class ZeekrMainBatteryVoltageSensor(ZeekrBaseSensor):
-        """Main battery voltage (12V) sensor"""
 
-        _attr_name = "Main Battery Voltage"
-        _attr_native_unit_of_measurement = "V"
-        _attr_icon = "mdi:battery-12v"
-        _attr_state_class = SensorStateClass.MEASUREMENT
-        _attr_device_class = SensorDeviceClass.VOLTAGE
+class ZeekrMainBatteryVoltageSensor(ZeekrBaseSensor):
+    """Main battery voltage (12V) sensor"""
 
-        def _get_sensor_type(self) -> str:
-            return "main_battery_voltage"
+    _attr_name = "Main Battery Voltage"
+    _attr_native_unit_of_measurement = "V"
+    _attr_icon = "mdi:battery-12v"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_device_class = SensorDeviceClass.VOLTAGE
 
-        @property
-        def native_value(self) -> float:
-            """Return main battery voltage"""
-            parser = self._get_parser()
-            if parser:
-                maintenance = parser.data.get('additionalVehicleStatus', {}).get('maintenanceStatus', {})
-                battery_info = maintenance.get('mainBatteryStatus', {})
-                voltage = float(battery_info.get('voltage', 0))
-                return round(voltage, 2)
-            return None
+    def _get_sensor_type(self) -> str:
+        return "main_battery_voltage"
 
-    class ZeekrParkTimeSensor(ZeekrBaseSensor):
-        """Park time sensor"""
+    @property
+    def native_value(self) -> float:
+        """Return main battery voltage"""
+        parser = self._get_parser()
+        if parser:
+            maintenance = parser.data.get('additionalVehicleStatus', {}).get('maintenanceStatus', {})
+            battery_info = maintenance.get('mainBatteryStatus', {})
+            voltage = float(battery_info.get('voltage', 0))
+            return round(voltage, 2)
+        return None
 
-        _attr_name = "Park Time"
-        _attr_icon = "mdi:clock"
-        _attr_state_class = SensorStateClass.MEASUREMENT
 
-        def _get_sensor_type(self) -> str:
-            return "park_time"
+class ZeekrParkTimeSensor(ZeekrBaseSensor):
+    """Park time sensor"""
 
-        @property
-        def native_value(self) -> str:
-            """Return park time"""
-            parser = self._get_parser()
-            if parser:
-                park_time_ms = int(parser.data.get('parkTime', {}).get('status', 0))
-                if park_time_ms == 0:
-                    return "Едет / Не припаркован"
+    _attr_name = "Park Time"
+    _attr_icon = "mdi:clock"
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
-                # Преобразуем миллисекунды в время припаркованности
-                from datetime import datetime, timedelta
+    def _get_sensor_type(self) -> str:
+        return "park_time"
+
+    @property
+    def native_value(self) -> str:
+        """Return park time"""
+        parser = self._get_parser()
+        if parser:
+            park_time_ms = int(parser.data.get('parkTime', {}).get('status', 0))
+            if park_time_ms == 0:
+                return "Едет / Не припаркован"
+
+            # Преобразуем миллисекунды в время припаркованности
+            from datetime import datetime
+            park_datetime = datetime.fromtimestamp(park_time_ms / 1000)
+            current_time = datetime.now()
+
+            # Вычисляем как долго припаркован
+            park_duration = current_time - park_datetime
+
+            # Форматируем в дни, часы, минуты
+            total_seconds = int(park_duration.total_seconds())
+            days = total_seconds // 86400
+            hours = (total_seconds % 86400) // 3600
+            minutes = (total_seconds % 3600) // 60
+
+            if days > 0:
+                return f"{days}д {hours}ч {minutes}м припаркован"
+            elif hours > 0:
+                return f"{hours}ч {minutes}м припаркован"
+            else:
+                return f"{minutes}м припаркован"
+        return None
+
+    @property
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        """Return additional attributes"""
+        parser = self._get_parser()
+        if parser:
+            park_time_ms = int(parser.data.get('parkTime', {}).get('status', 0))
+            if park_time_ms > 0:
+                from datetime import datetime
                 park_datetime = datetime.fromtimestamp(park_time_ms / 1000)
+                return {
+                    "parked_since": park_datetime.strftime('%Y-%m-%d %H:%M:%S'),
+                }
+        return {}
+
+
+class ZeekrLastUpdateTimeSensor(ZeekrBaseSensor):
+    """Last update time sensor - when vehicle last connected to server"""
+
+    _attr_name = "Last Update Time"
+    _attr_icon = "mdi:cloud-upload"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def _get_sensor_type(self) -> str:
+        return "last_update_time"
+
+    @property
+    def native_value(self) -> str:
+        """Return last update time"""
+        parser = self._get_parser()
+        if parser:
+            timestamp = int(parser.data.get('updateTime', 0))
+            if timestamp:
+                from datetime import datetime
+                update_datetime = datetime.fromtimestamp(timestamp / 1000)
+                return update_datetime.strftime('%Y-%m-%d %H:%M:%S')
+        return "N/A"
+
+    @property
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        """Return additional attributes"""
+        parser = self._get_parser()
+        if parser:
+            timestamp = int(parser.data.get('updateTime', 0))
+            if timestamp:
+                from datetime import datetime
+                update_datetime = datetime.fromtimestamp(timestamp / 1000)
                 current_time = datetime.now()
+                time_diff = current_time - update_datetime
 
-                # Вычисляем как долго припаркован
-                park_duration = current_time - park_datetime
-
-                # Форматируем в дни, часы, минуты
-                total_seconds = int(park_duration.total_seconds())
-                days = total_seconds // 86400
-                hours = (total_seconds % 86400) // 3600
-                minutes = (total_seconds % 3600) // 60
+                total_seconds = int(time_diff.total_seconds())
+                minutes = total_seconds // 60
+                hours = minutes // 60
+                days = hours // 24
 
                 if days > 0:
-                    return f"{days}д {hours}ч {minutes}м припаркован"
+                    time_ago = f"{days} дней назад"
                 elif hours > 0:
-                    return f"{hours}ч {minutes}м припаркован"
+                    time_ago = f"{hours} часов назад"
+                elif minutes > 0:
+                    time_ago = f"{minutes} минут назад"
                 else:
-                    return f"{minutes}м припаркован"
-            return None
+                    time_ago = "только что"
 
-        @property
-        def extra_state_attributes(self) -> Dict[str, Any]:
-            """Return additional attributes"""
-            parser = self._get_parser()
-            if parser:
-                park_time_ms = int(parser.data.get('parkTime', {}).get('status', 0))
-                if park_time_ms > 0:
-                    from datetime import datetime
-                    park_datetime = datetime.fromtimestamp(park_time_ms / 1000)
-                    return {
-                        "parked_since": park_datetime.strftime('%Y-%m-%d %H:%M:%S'),
-                    }
-            return {}
-
-    class ZeekrLastUpdateTimeSensor(ZeekrBaseSensor):
-        """Last update time sensor - when vehicle last connected to server"""
-
-        _attr_name = "Last Update Time"
-        _attr_icon = "mdi:cloud-upload"
-        _attr_state_class = SensorStateClass.MEASUREMENT
-
-        def _get_sensor_type(self) -> str:
-            return "last_update_time"
-
-        @property
-        def native_value(self) -> str:
-            """Return last update time"""
-            parser = self._get_parser()
-            if parser:
-                timestamp = int(parser.data.get('updateTime', 0))
-                if timestamp:
-                    from datetime import datetime
-                    update_datetime = datetime.fromtimestamp(timestamp / 1000)
-                    return update_datetime.strftime('%Y-%m-%d %H:%M:%S')
-            return "N/A"
-
-        @property
-        def extra_state_attributes(self) -> Dict[str, Any]:
-            """Return additional attributes"""
-            parser = self._get_parser()
-            if parser:
-                timestamp = int(parser.data.get('updateTime', 0))
-                if timestamp:
-                    from datetime import datetime
-                    update_datetime = datetime.fromtimestamp(timestamp / 1000)
-                    current_time = datetime.now()
-                    time_diff = current_time - update_datetime
-
-                    total_seconds = int(time_diff.total_seconds())
-                    minutes = total_seconds // 60
-                    hours = minutes // 60
-                    days = hours // 24
-
-                    if days > 0:
-                        time_ago = f"{days} дней назад"
-                    elif hours > 0:
-                        time_ago = f"{hours} часов назад"
-                    elif minutes > 0:
-                        time_ago = f"{minutes} минут назад"
-                    else:
-                        time_ago = "только что"
-
-                    return {
-                        "time_ago": time_ago,
-                        "timestamp": timestamp,
-                    }
-            return {}
+                return {
+                    "time_ago": time_ago,
+                    "timestamp": timestamp,
+                }
+        return {}
