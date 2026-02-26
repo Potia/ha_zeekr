@@ -16,7 +16,7 @@ from .zeekr_config import (
     PHONE_MODEL, PHONE_VERSION, APP_TYPE, REQUEST_TIMEOUT,
     REGION_CODE, BASE_URL_SECURE, HMAC_SECRET
 )
-from storage import token_storage
+from .zeekr_storage import token_storage
 
 
 class ZeekrAuth:

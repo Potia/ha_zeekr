@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from .const import DOMAIN
 from .zeekr_api import ZeekrAPI
 from .coordinator import ZeekrDataCoordinator
-from .storage import token_storage
+from .zeekr_storage import token_storage
 
 _LOGGER = logging.getLogger(__name__)
 
