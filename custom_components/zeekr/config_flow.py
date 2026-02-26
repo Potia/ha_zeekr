@@ -42,12 +42,8 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
 
             try:
-                # Add current directory to path
-                current_dir = os.path.dirname(__file__)
-                if current_dir not in sys.path:
-                    sys.path.insert(0, current_dir)
-
-                from auth import ZeekrAuth
+                # ✅ ИСПРАВЛЕНО - правильный импорт
+                from .auth import ZeekrAuth
 
                 auth = ZeekrAuth()
 
@@ -96,10 +92,7 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
 
             try:
-                current_dir = os.path.dirname(__file__)
-                if current_dir not in sys.path:
-                    sys.path.insert(0, current_dir)
-
+                # ✅ ИСПРАВЛЕНО - правильные импорты
                 from .zeekr_storage import token_storage
 
                 auth = self.auth
