@@ -19,11 +19,6 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
-    def __init__(self):
-        """Initialize config flow"""
-        self.mobile: Optional[str] = None
-        self.auth_instance = None
-
     async def async_step_user(
             self, user_input: Optional[Dict[str, Any]] = None
     ) -> FlowResult:
@@ -38,55 +33,46 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             mobile = user_input.get(CONF_MOBILE, "").strip()
 
-            if not mobile:
+            if not mobile or len(mobile) < 10:
                 errors["base"] = "invalid_phone"
             else:
                 try:
-                    # Импортируем только здесь, чтобы избежать проблем
-                    import sys
-                    import os
+                    _LOGGER.debug(f"Requesting SMS code for {mobile}")
 
-                    # Добавляем родительскую папку в sys.path
-                    parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-                    if parent_dir not in sys.path:
-                        sys.path.insert(0, parent_dir)
-
-                    # Импортируем auth
+                    # Простой импорт без путей
                     from auth import ZeekrAuth
 
-                    # Создаем auth объект
                     auth = ZeekrAuth()
-                    self.auth_instance = auth
-                    self.mobile = mobile
 
-                    # Запрашиваем SMS код
-                    success, msg = await self.hass.async_add_executor_job(
-                        auth.request_sms_code, mobile
-                    )
+                    # Запрашиваем SMS код (синхронно через executor)
+                    def request_sms():
+                        success, msg = auth.request_sms_code(mobile)
+                        return success, msg
+
+                    success, msg = await self.hass.async_add_executor_job(request_sms)
 
                     if success:
-                        # Переходим к следующему шагу
+                        # Сохраняем мобильный для следующего шага
+                        self.mobile = mobile
+                        self.auth = auth
                         return await self.async_step_sms_code()
                     else:
                         _LOGGER.error(f"Failed to send SMS: {msg}")
                         errors["base"] = "cannot_send_sms"
 
-                except ImportError as err:
-                    _LOGGER.error(f"Import error: {err}")
+                except ImportError as e:
+                    _LOGGER.error(f"Import error: {e}")
                     errors["base"] = "import_error"
-                except Exception as err:
-                    _LOGGER.error(f"Error requesting SMS: {err}")
+                except Exception as e:
+                    _LOGGER.error(f"Error requesting SMS: {e}", exc_info=True)
                     errors["base"] = "cannot_connect"
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema({
-                vol.Required(CONF_MOBILE, default=""): str,
+                vol.Required(CONF_MOBILE): str,
             }),
             errors=errors,
-            description_placeholders={
-                "hint": "例如: 13812345678"
-            }
         )
 
     async def async_step_sms_code(
@@ -99,28 +85,23 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             sms_code = user_input.get(CONF_SMS_CODE, "").strip()
 
-            if not sms_code:
+            if not sms_code or len(sms_code) < 4:
                 errors["base"] = "invalid_code"
             else:
                 try:
-                    import sys
-                    import os
-
-                    parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-                    if parent_dir not in sys.path:
-                        sys.path.insert(0, parent_dir)
+                    _LOGGER.debug("Starting 3-step authentication")
 
                     from storage import token_storage
 
-                    auth = self.auth_instance
-
-                    _LOGGER.debug("Starting 3-step authentication")
+                    auth = self.auth
+                    mobile = self.mobile
 
                     # ШАГ 1: SMS логин
-                    _LOGGER.debug("Step 1: SMS login")
-                    success, toc_tokens = await self.hass.async_add_executor_job(
-                        auth.login_with_sms, self.mobile, sms_code
-                    )
+                    def sms_login():
+                        success, tokens = auth.login_with_sms(mobile, sms_code)
+                        return success, tokens
+
+                    success, toc_tokens = await self.hass.async_add_executor_job(sms_login)
 
                     if not success:
                         _LOGGER.error("SMS login failed")
@@ -128,30 +109,20 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         return self.async_show_form(
                             step_id="sms_code",
                             data_schema=vol.Schema({
-                                vol.Required(CONF_SMS_CODE, default=""): str,
+                                vol.Required(CONF_SMS_CODE): str,
                             }),
                             errors=errors,
                         )
 
                     jwt_token = toc_tokens.get('jwtToken')
-                    if not jwt_token:
-                        _LOGGER.error("No JWT token in response")
-                        errors["base"] = "no_jwt_token"
-                        return self.async_show_form(
-                            step_id="sms_code",
-                            data_schema=vol.Schema({
-                                vol.Required(CONF_SMS_CODE, default=""): str,
-                            }),
-                            errors=errors,
-                        )
-
-                    auth.mobile = self.mobile
+                    auth.mobile = mobile
 
                     # ШАГ 2: Получение Auth Code
-                    _LOGGER.debug("Step 2: Get auth code")
-                    success, auth_code = await self.hass.async_add_executor_job(
-                        auth.get_auth_code, jwt_token
-                    )
+                    def get_auth_code():
+                        success, code = auth.get_auth_code(jwt_token)
+                        return success, code
+
+                    success, auth_code = await self.hass.async_add_executor_job(get_auth_code)
 
                     if not success or not auth_code:
                         _LOGGER.error("Failed to get auth code")
@@ -159,16 +130,17 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         return self.async_show_form(
                             step_id="sms_code",
                             data_schema=vol.Schema({
-                                vol.Required(CONF_SMS_CODE, default=""): str,
+                                vol.Required(CONF_SMS_CODE): str,
                             }),
                             errors=errors,
                         )
 
                     # ШАГ 3: Логин с Auth Code
-                    _LOGGER.debug("Step 3: Auth code login")
-                    success, secure_tokens = await self.hass.async_add_executor_job(
-                        auth.login_with_auth_code, auth_code
-                    )
+                    def auth_code_login():
+                        success, tokens = auth.login_with_auth_code(auth_code)
+                        return success, tokens
+
+                    success, secure_tokens = await self.hass.async_add_executor_job(auth_code_login)
 
                     if not success or not secure_tokens:
                         _LOGGER.error("Failed to get secure tokens")
@@ -176,33 +148,29 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         return self.async_show_form(
                             step_id="sms_code",
                             data_schema=vol.Schema({
-                                vol.Required(CONF_SMS_CODE, default=""): str,
+                                vol.Required(CONF_SMS_CODE): str,
                             }),
                             errors=errors,
                         )
 
                     # Сохраняем токены
-                    _LOGGER.debug("Saving tokens")
-                    await self.hass.async_add_executor_job(
-                        token_storage.save_tokens, secure_tokens
-                    )
+                    def save_tokens():
+                        token_storage.save_tokens(secure_tokens)
+
+                    await self.hass.async_add_executor_job(save_tokens)
 
                     _LOGGER.info("Authentication successful!")
 
-                    # Успешно завершили конфигурацию
                     return self.async_abort(reason="auth_successful")
 
-                except Exception as err:
-                    _LOGGER.error(f"Error during authentication: {err}", exc_info=True)
+                except Exception as e:
+                    _LOGGER.error(f"Error during authentication: {e}", exc_info=True)
                     errors["base"] = "cannot_connect"
 
         return self.async_show_form(
             step_id="sms_code",
             data_schema=vol.Schema({
-                vol.Required(CONF_SMS_CODE, default=""): str,
+                vol.Required(CONF_SMS_CODE): str,
             }),
             errors=errors,
-            description_placeholders={
-                "hint": f"SMS code sent to {self.mobile}"
-            }
         )

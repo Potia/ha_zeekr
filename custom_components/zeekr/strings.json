@@ -3,9 +3,9 @@
     "step": {
       "user": {
         "title": "Zeekr Configuration",
-        "description": "Setup Zeekr vehicle integration",
+        "description": "Enter your mobile number",
         "data": {
-          "mobile": "Mobile Number"
+          "mobile": "Mobile Number (e.g., 13812345678)"
         }
       },
       "sms_code": {
@@ -17,18 +17,17 @@
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to Zeekr API",
+      "cannot_connect": "Failed to connect",
       "invalid_auth": "Invalid SMS code",
-      "cannot_send_sms": "Failed to send SMS code",
+      "cannot_send_sms": "Failed to send SMS",
       "cannot_get_auth_code": "Failed to get auth code",
-      "cannot_get_secure_tokens": "Failed to get secure tokens",
+      "cannot_get_secure_tokens": "Failed to get tokens",
       "invalid_phone": "Invalid phone number",
-      "invalid_code": "Invalid SMS code",
-      "no_jwt_token": "No JWT token received",
-      "import_error": "Import error - check logs"
+      "invalid_code": "Invalid code",
+      "import_error": "Import error"
     },
     "abort": {
-      "auth_successful": "Authentication successful! Integration setup complete."
+      "auth_successful": "Authentication successful!"
     }
   }
 }
