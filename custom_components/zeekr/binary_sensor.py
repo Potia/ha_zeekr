@@ -32,7 +32,7 @@ async def async_setup_entry(
     entities = []
 
     # Для каждого автомобиля создаем binary sensors
-    for vin in coordinator.vehicles_data.keys():
+    for vin in coordinator.data.keys():  # ← ИЗМЕНЕНО
         entities.extend([
             ZeekrEngineStatusSensor(coordinator, vin),
             ZeekrDriverDoorSensor(coordinator, vin),

@@ -40,7 +40,7 @@ async def async_setup_entry(
     entities = []
 
     # Для каждого автомобиля создаем датчики
-    for vin in coordinator.vehicles_data.keys():
+    for vin in coordinator.data.keys():  # ← ИЗМЕНЕНО
         entities.extend([
             ZeekrBatterySensor(coordinator, vin),
             ZeekrDistanceToEmptySensor(coordinator, vin),

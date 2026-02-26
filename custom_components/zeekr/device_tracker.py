@@ -32,7 +32,7 @@ async def async_setup_entry(
     entities = []
 
     # Для каждого автомобиля создаем device tracker
-    for vin in coordinator.vehicles_data.keys():
+    for vin in coordinator.data.keys():  # ← ИЗМЕНЕНО
         entities.append(ZeekrDeviceTracker(coordinator, vin))
 
     async_add_entities(entities)
