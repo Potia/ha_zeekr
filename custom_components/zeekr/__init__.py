@@ -1,4 +1,26 @@
 # custom_components/zeekr/__init__.py
+"""Zeekr integration for Home Assistant"""
+
+import logging
+import sys
+import os
+from typing import Final
+
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
+from homeassistant.core import HomeAssistant
+
+from .const import DOMAIN
+
+_LOGGER = logging.getLogger(__name__)
+
+PLATFORMS: Final = [
+    Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.DEVICE_TRACKER,
+]
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Zeekr integration"""
 
@@ -86,4 +108,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     except Exception as err:
         _LOGGER.error(f"❌ Error setting up Zeekr: {err}", exc_info=True)
+        return False
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload Zeekr integration"""
+
+    _LOGGER.debug(f"Unloading Zeekr integration for entry {entry.entry_id}")
+
+    try:
+        # Выгружаем все platforms
+        unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+        if unload_ok:
+            hass.data[DOMAIN].pop(entry.entry_id)
+            _LOGGER.info("✅ Zeekr integration unloaded successfully")
+
+        return unload_ok
+
+    except Exception as err:
+        _LOGGER.error(f"❌ Error unloading Zeekr integration: {err}")
         return False
