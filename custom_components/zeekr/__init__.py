@@ -1,26 +1,4 @@
 # custom_components/zeekr/__init__.py
-"""Zeekr integration for Home Assistant"""
-
-import logging
-import sys
-import os
-from typing import Final
-
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
-
-from .const import DOMAIN
-
-_LOGGER = logging.getLogger(__name__)
-
-PLATFORMS: Final = [
-    Platform.SENSOR,
-    Platform.BINARY_SENSOR,
-    Platform.DEVICE_TRACKER,
-]
-
-
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Zeekr integration"""
 
@@ -47,7 +25,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.error("❌ No tokens found in storage")
             return False
 
-        _LOGGER.info(f"✅ Tokens loaded, keys: {list(tokens.keys())}")
+        _LOGGER.info(f"✅ Tokens loaded")
 
         # Проверяем необходимые поля
         required_fields = ['accessToken', 'userId', 'clientId', 'device_id']
@@ -88,45 +66,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await coordinator.async_config_entry_first_refresh()
             _LOGGER.info("✅ First data refresh successful")
         except Exception as e:
-            _LOGGER.error(f"⚠️  First refresh failed (will retry): {e}")
-            # Не возвращаем False, дадим еще один шанс
+            _LOGGER.warning(f"⚠️  First refresh failed (will retry): {e}")
 
         # Сохраняем coordinator в hass.data
         hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
-        _LOGGER.info(f"✅ Coordinator stored in hass.data")
+        _LOGGER.info(f"✅ Coordinator stored")
 
         # Устанавливаем platforms
         try:
             await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-            _LOGGER.info(f"✅ Platforms set up: {PLATFORMS}")
+            _LOGGER.info(f"✅ Platforms configured: {PLATFORMS}")
         except Exception as e:
             _LOGGER.error(f"❌ Failed to set up platforms: {e}")
             return False
 
-        _LOGGER.info("✅✅✅ Zeekr integration setup successfully!")
+        _LOGGER.info("🎉 Zeekr integration setup COMPLETE!")
 
         return True
 
     except Exception as err:
-        _LOGGER.error(f"❌ Error setting up Zeekr integration: {err}", exc_info=True)
-        return False
-
-
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload Zeekr integration"""
-
-    _LOGGER.debug(f"Unloading Zeekr integration for entry {entry.entry_id}")
-
-    try:
-        # Выгружаем все platforms
-        unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-
-        if unload_ok:
-            hass.data[DOMAIN].pop(entry.entry_id)
-            _LOGGER.info("✅ Zeekr integration unloaded successfully")
-
-        return unload_ok
-
-    except Exception as err:
-        _LOGGER.error(f"❌ Error unloading Zeekr integration: {err}")
+        _LOGGER.error(f"❌ Error setting up Zeekr: {err}", exc_info=True)
         return False

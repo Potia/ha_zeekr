@@ -10,6 +10,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.const import CONF_NAME
 
 from .const import DOMAIN, CONF_MOBILE, CONF_SMS_CODE
 
@@ -39,7 +40,7 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "invalid_phone"
             else:
                 try:
-                    _LOGGER.debug(f"Requesting SMS code for {mobile}")
+                    _LOGGER.info(f"📱 Requesting SMS code for {mobile}")
 
                     # Добавляем текущую папку в sys.path
                     current_dir = os.path.dirname(__file__)
@@ -59,19 +60,20 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     success, msg = await self.hass.async_add_executor_job(request_sms)
 
                     if success:
+                        _LOGGER.info("✅ SMS sent successfully")
                         # Сохраняем мобильный для следующего шага
                         self.mobile = mobile
                         self.auth = auth
                         return await self.async_step_sms_code()
                     else:
-                        _LOGGER.error(f"Failed to send SMS: {msg}")
+                        _LOGGER.error(f"❌ Failed to send SMS: {msg}")
                         errors["base"] = "cannot_send_sms"
 
                 except ImportError as e:
-                    _LOGGER.error(f"Import error: {e}", exc_info=True)
+                    _LOGGER.error(f"❌ Import error: {e}", exc_info=True)
                     errors["base"] = "import_error"
                 except Exception as e:
-                    _LOGGER.error(f"Error requesting SMS: {e}", exc_info=True)
+                    _LOGGER.error(f"❌ Error requesting SMS: {e}", exc_info=True)
                     errors["base"] = "cannot_connect"
 
         return self.async_show_form(
@@ -96,7 +98,7 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "invalid_code"
             else:
                 try:
-                    _LOGGER.debug("Starting 3-step authentication")
+                    _LOGGER.info("🔐 Starting 3-step authentication")
 
                     # Добавляем текущую папку в sys.path
                     current_dir = os.path.dirname(__file__)
@@ -116,7 +118,7 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     success, toc_tokens = await self.hass.async_add_executor_job(sms_login)
 
                     if not success:
-                        _LOGGER.error("SMS login failed")
+                        _LOGGER.error("❌ SMS login failed")
                         errors["base"] = "invalid_auth"
                         return self.async_show_form(
                             step_id="sms_code",
@@ -126,6 +128,7 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             errors=errors,
                         )
 
+                    _LOGGER.info("✅ SMS login successful")
                     jwt_token = toc_tokens.get('jwtToken')
                     auth.mobile = mobile
 
@@ -137,7 +140,7 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     success, auth_code = await self.hass.async_add_executor_job(get_auth_code)
 
                     if not success or not auth_code:
-                        _LOGGER.error("Failed to get auth code")
+                        _LOGGER.error("❌ Failed to get auth code")
                         errors["base"] = "cannot_get_auth_code"
                         return self.async_show_form(
                             step_id="sms_code",
@@ -147,6 +150,8 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             errors=errors,
                         )
 
+                    _LOGGER.info("✅ Auth code obtained")
+
                     # ШАГ 3: Логин с Auth Code
                     def auth_code_login():
                         success, tokens = auth.login_with_auth_code(auth_code)
@@ -155,7 +160,7 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     success, secure_tokens = await self.hass.async_add_executor_job(auth_code_login)
 
                     if not success or not secure_tokens:
-                        _LOGGER.error("Failed to get secure tokens")
+                        _LOGGER.error("❌ Failed to get secure tokens")
                         errors["base"] = "cannot_get_secure_tokens"
                         return self.async_show_form(
                             step_id="sms_code",
@@ -165,29 +170,30 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             errors=errors,
                         )
 
-                    # Сохраняем токены
-                    _LOGGER.info(f"Saving tokens: {list(secure_tokens.keys())}")
+                    _LOGGER.info("✅ Secure tokens obtained")
 
+                    # Сохраняем токены
                     def save_tokens():
-                        print(f"[ConfigFlow] Attempting to save tokens to {token_storage.filename}")
                         token_storage.save_tokens(secure_tokens)
-                        # Проверяем что сохранилось
-                        import os
-                        if os.path.exists(token_storage.filename):
-                            print(f"[ConfigFlow] ✅ Файл создан: {token_storage.filename}")
-                        else:
-                            print(f"[ConfigFlow] ❌ Файл не создан!")
 
                     await self.hass.async_add_executor_job(save_tokens)
 
-                    _LOGGER.info("Tokens saved successfully")
+                    _LOGGER.info("✅ Tokens saved successfully")
 
-                    _LOGGER.info("Authentication successful!")
+                    # ВАЖНО! Создаем запись в config entries
+                    _LOGGER.info("📝 Creating config entry...")
 
-                    return self.async_abort(reason="auth_successful")
+                    # Используем абортинг с данными для создания записи
+                    return self.async_abort_create_entry(
+                        title=f"Zeekr {mobile}",
+                        data={
+                            "mobile": mobile,
+                            "user_id": secure_tokens.get("userId"),
+                        }
+                    )
 
                 except Exception as e:
-                    _LOGGER.error(f"Error during authentication: {e}", exc_info=True)
+                    _LOGGER.error(f"❌ Error during authentication: {e}", exc_info=True)
                     errors["base"] = "cannot_connect"
 
         return self.async_show_form(
