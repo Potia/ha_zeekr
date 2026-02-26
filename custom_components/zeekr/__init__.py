@@ -18,6 +18,7 @@ PLATFORMS: Final = [
     Platform.SENSOR,
     Platform.BINARY_SENSOR,
     Platform.DEVICE_TRACKER,
+    Platform.BUTTON,  # ✅ ДОБАВЛЯЕМ КНОПКИ
 ]
 
 
