@@ -3,6 +3,8 @@
 
 import logging
 from typing import Any, Dict, Optional
+import sys
+import os
 
 import voluptuous as vol
 from homeassistant import config_entries
@@ -39,12 +41,17 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 try:
                     _LOGGER.debug(f"Requesting SMS code for {mobile}")
 
-                    # Простой импорт без путей
+                    # Добавляем текущую папку в sys.path
+                    current_dir = os.path.dirname(__file__)
+                    if current_dir not in sys.path:
+                        sys.path.insert(0, current_dir)
+
+                    # Импортируем auth
                     from auth import ZeekrAuth
 
                     auth = ZeekrAuth()
 
-                    # Запрашиваем SMS код (синхронно через executor)
+                    # Запрашиваем SMS код
                     def request_sms():
                         success, msg = auth.request_sms_code(mobile)
                         return success, msg
@@ -61,7 +68,7 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         errors["base"] = "cannot_send_sms"
 
                 except ImportError as e:
-                    _LOGGER.error(f"Import error: {e}")
+                    _LOGGER.error(f"Import error: {e}", exc_info=True)
                     errors["base"] = "import_error"
                 except Exception as e:
                     _LOGGER.error(f"Error requesting SMS: {e}", exc_info=True)
@@ -90,6 +97,11 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 try:
                     _LOGGER.debug("Starting 3-step authentication")
+
+                    # Добавляем текущую папку в sys.path
+                    current_dir = os.path.dirname(__file__)
+                    if current_dir not in sys.path:
+                        sys.path.insert(0, current_dir)
 
                     from storage import token_storage
 

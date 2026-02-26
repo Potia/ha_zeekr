@@ -11,6 +11,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
+from .coordinator import ZeekrDataCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,15 +28,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.debug("Setting up Zeekr integration")
 
     try:
-        # Добавляем родительскую папку в sys.path для импорта
-        parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        if parent_dir not in sys.path:
-            sys.path.insert(0, parent_dir)
+        # Добавляем текущую папку в sys.path
+        current_dir = os.path.dirname(__file__)
+        if current_dir not in sys.path:
+            sys.path.insert(0, current_dir)
 
         # Импортируем необходимые модули
         from zeekr_api import ZeekrAPI
         from storage import token_storage
-        from coordinator import ZeekrDataCoordinator
 
         # Загружаем токены
         tokens = token_storage.load_tokens()

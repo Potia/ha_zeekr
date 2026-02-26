@@ -15,21 +15,16 @@ from .const import DOMAIN, DEFAULT_SCAN_INTERVAL
 _LOGGER = logging.getLogger(__name__)
 
 # Добавляем путь для импорта
-parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
+current_dir = os.path.dirname(__file__)
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
 
 
 class ZeekrDataCoordinator(DataUpdateCoordinator):
     """Class to manage fetching Zeekr data from API"""
 
     def __init__(self, hass: HomeAssistant, api_client):
-        """Initialize the coordinator.
-
-        Args:
-            hass: Home Assistant instance
-            api_client: API client for Zeekr
-        """
+        """Initialize the coordinator."""
         super().__init__(
             hass,
             _LOGGER,
@@ -40,11 +35,7 @@ class ZeekrDataCoordinator(DataUpdateCoordinator):
         self.api_client = api_client
 
     async def _async_update_data(self) -> Dict[str, Any]:
-        """Fetch data from Zeekr API.
-
-        Returns:
-            Dictionary with vehicle data
-        """
+        """Fetch data from Zeekr API."""
         try:
             _LOGGER.debug("Fetching Zeekr vehicle data")
 
