@@ -5,7 +5,7 @@
 import json
 import os
 from typing import Optional, Dict
-
+from .zeekr_config import TOKENS_FILE
 
 class TokenStorage:
     """Класс для работы с хранилищем токенов"""

@@ -65,3 +65,6 @@ requirements.txt
 
 # Игнорировать файлы macOS
 .DS_Store
+custom_components/.DS_Store
+custom_components/zeekr/.DS_Store
+custom_components/zeekr/translations/.DS_Store

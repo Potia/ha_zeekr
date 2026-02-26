@@ -11,10 +11,10 @@ import hashlib
 import random
 from typing import Optional, Dict, Tuple
 from datetime import datetime
-from config import (
+from .zeekr_config import (
     BASE_URL_TOC, X_CA_SECRET, X_CA_KEY, APP_VERSION,
     PHONE_MODEL, PHONE_VERSION, APP_TYPE, REQUEST_TIMEOUT,
-    REGION_CODE, BASE_URL_SECURE
+    REGION_CODE, BASE_URL_SECURE, HMAC_SECRET
 )
 from storage import token_storage
 
@@ -253,7 +253,6 @@ class ZeekrAuth:
         import hmac
         import base64
         from urllib.parse import urlencode
-        from config import HMAC_SECRET
 
         timestamp = str(int(datetime.now().timestamp() * 1000))
         nonce = str(uuid.uuid4()).upper()

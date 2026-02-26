@@ -11,7 +11,7 @@ import base64
 from typing import Optional, Dict, List, Tuple
 from datetime import datetime
 from urllib.parse import urlencode
-from config import (
+from .zeekr_config import (
     BASE_URL_SECURE, HMAC_SECRET, APP_VERSION, PHONE_MODEL,
     PHONE_VERSION, REQUEST_TIMEOUT
 )
