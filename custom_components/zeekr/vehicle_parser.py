@@ -9,6 +9,97 @@ from datetime import datetime
 class VehicleDataParser:
     """Парсер для извлечения всей информации о статусе автомобиля"""
 
+    def _calculate_dc_power(self, voltage: float, current: float) -> float:
+        """
+        Рассчитывает мощность DC зарядки
+
+        Формула: Мощность (кВт) = Напряжение (В) × Ток (А) / 1000
+
+        Args:
+            voltage: Напряжение в вольтах
+            current: Ток в амперах
+
+        Returns:
+            Мощность в кВт
+        """
+        if voltage and current:
+            power_kw = (voltage * abs(current)) / 1000
+            return round(power_kw, 1)
+        return 0.0
+
+    def _calculate_discharge_power(self, voltage: float, current: float) -> float:
+        """
+        Рассчитывает мощность разрядки (V2L, V2H)
+
+        Args:
+            voltage: Напряжение в вольтах
+            current: Ток в амперах (отрицательный при разрядке)
+
+        Returns:
+            Мощность в кВт
+        """
+        if voltage and current:
+            power_kw = (voltage * abs(current)) / 1000
+            return round(power_kw, 1)
+        return 0.0
+
+    def _parse_dc_charge_status(self, status_code: str) -> str:
+        """
+        Парсит статус DC зарядки
+
+        Args:
+            status_code: Код статуса (0, 1, 2, 3 и т.д.)
+
+        Returns:
+            Описание статуса на русском языке
+        """
+        status_map = {
+            '0': '❌ Не активна',
+            '1': '⚡ Активна (подключена)',
+            '2': '🔋 Зарядка в процессе',
+            '3': '✅ Зарядка завершена',
+            '4': '⏸️ Приостановлена',
+        }
+        return status_map.get(str(status_code), f'❓ Неизвестно ({status_code})')
+
+    def _parse_dc_dc_status(self, status_code: str) -> str:
+        """
+        Парсит статус DC/DC конвертера (преобразует 400В в 12В)
+
+        Args:
+            status_code: Код статуса
+
+        Returns:
+            Описание статуса
+        """
+        status_map = {
+            '0': '❌ Отключен',
+            '1': '🔄 Переход',
+            '2': '⚠️ Ошибка',
+            '3': '✅ Включен и работает',
+        }
+        return status_map.get(str(status_code), f'❓ Неизвестно ({status_code})')
+
+    def _parse_charger_state(self, state_code: str) -> str:
+        """
+        Парсит состояние зарядного устройства
+
+        Args:
+            state_code: Код состояния (0-15)
+
+        Returns:
+            Описание состояния
+        """
+        state_map = {
+            '0': '❌ Отключено',
+            '1': '🔌 Подключено (ожидание)',
+            '2': '⚡ Предзарядка',
+            '3': '🔋 Основная зарядка',
+            '4': '🔄 Уравнивание',
+            '5': '✅ Завершено',
+            '15': '⚙️ Готово',
+        }
+        return state_map.get(str(state_code), f'⏳ Состояние {state_code}')
     def __init__(self, raw_data: Dict[str, Any]):
         """
         Инициализация парсера
@@ -393,18 +484,40 @@ class VehicleDataParser:
     # ==================== ЗАРЯДКА ====================
 
     def get_charging_info(self) -> Dict[str, Any]:
-        """Получает информацию о зарядке"""
+        """Получает информацию о зарядке (AC и DC)"""
         ev_status = self.data.get('additionalVehicleStatus', {}).get('electricVehicleStatus', {})
 
         return {
+            # ===== AC ЗАРЯДКА =====
             'charge_status': self._parse_charge_status(ev_status.get('chargeSts', '0')),
-            'charge_pile_voltage': float(ev_status.get('dcChargePileUAct', 0)),  # 🎯 Вольтаж на зарядке
-            'current_power_input': float(ev_status.get('averPowerConsumption', 0)),  # 🎯 кВт приходит на машину
-            'dc_charge_pile_current': float(ev_status.get('dcChargePileIAct', 0)),  # Ток зарядки
-            'charge_connector_status': self._parse_charge_connector_status(
-                ev_status.get('disChargeConnectStatus', '0')),
+            'charge_pile_voltage': float(ev_status.get('dcChargePileUAct', 0)),
+            'current_power_input': float(ev_status.get('averPowerConsumption', 0)),
             'ac_charge_status': self._parse_charge_status(ev_status.get('chargeSts', '0')),
+
+            # ===== DC ЗАРЯДКА (БЫСТРАЯ) =====
             'dc_charge_status': self._parse_dc_charge_status(ev_status.get('dcChargeSts', '0')),
+            'dc_charge_pile_current': float(ev_status.get('dcChargePileIAct', 0)),  # Ток в А
+            'dc_charge_pile_voltage': float(ev_status.get('dcChargePileUAct', 0)),  # Напряжение в В
+            'dc_power': self._calculate_dc_power(
+                float(ev_status.get('dcChargePileUAct', 0)),
+                float(ev_status.get('dcChargePileIAct', 0))
+            ),
+            'dc_dc_activated': bool(int(ev_status.get('dcDcActvd', 0))),
+            'dc_dc_connect_status': self._parse_dc_dc_status(ev_status.get('dcDcConnectStatus', '0')),
+
+            # ===== РАЗРЯДКА (V2L, V2H) =====
+            'discharge_voltage': float(ev_status.get('disChargeUAct', 0)),
+            'discharge_current': float(ev_status.get('disChargeIAct', 0)),
+            'discharge_power': self._calculate_discharge_power(
+                float(ev_status.get('disChargeUAct', 0)),
+                float(ev_status.get('disChargeIAct', 0))
+            ),
+            'discharge_connector_status': self._parse_charge_connector_status(
+                ev_status.get('disChargeConnectStatus', '0')),
+
+            # ===== ОБЩАЯ ИНФОРМАЦИЯ =====
+            'charger_state': self._parse_charger_state(ev_status.get('chargerState', '0')),
+            'time_to_fully_charged': int(float(ev_status.get('timeToFullyCharged', 0))),
         }
 
     def _parse_charge_connector_status(self, status_code: str) -> str:
