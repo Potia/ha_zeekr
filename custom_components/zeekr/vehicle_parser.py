@@ -52,22 +52,28 @@ class VehicleDataParser:
     # ==================== БАТАРЕЯ И ЗАРЯД ====================
 
     def get_battery_info(self) -> Dict[str, Any]:
-        """Получает информацию о батарее"""
+        """Получает информацию о батерее"""
         ev_status = self.data.get('additionalVehicleStatus', {}).get('electricVehicleStatus', {})
         main_battery = self.data.get('additionalVehicleStatus', {}).get('maintenanceStatus', {}).get(
             'mainBatteryStatus', {})
 
         return {
-            'charge_level': int(float(ev_status.get('chargeLevel', 0))),
+            # chargeLevel из electricVehicleStatus - это кВт входа (при зарядке)
+            'charge_level': int(float(ev_status.get('chargeLevel', 0))),  # кВт входа
+
             'distance_to_empty': int(float(ev_status.get('distanceToEmptyOnBatteryOnly', 0))),
             'charge_status': self._parse_charge_status(ev_status.get('chargeSts', '0')),
-            'avg_power_consumption': float(ev_status.get('averPowerConsumption', 0)),  # 🎯 кВт приходит на машину
+            'avg_power_consumption': float(ev_status.get('averPowerConsumption', 0)),  # кВт расходуется
             'time_to_fully_charged': int(float(ev_status.get('timeToFullyCharged', 0))),
-            'soc': float(main_battery.get('stateOfCharge', 0)),  # State of Charge
-            'soh': float(main_battery.get('stateOfHealth', 0)),  # State of Health
+
+            # mainBatteryStatus.chargeLevel это РЕАЛЬНЫЙ процент заряда батареи!
+            'battery_percentage': int(float(main_battery.get('chargeLevel', 0))),  # 🎯 РЕАЛЬНЫЙ ПРОЦЕНТ!
+
+            'soc': float(main_battery.get('stateOfCharge', 0)),  # State of Charge (не %)
+            'soh': float(main_battery.get('stateOfHealth', 0)),  # State of Health (не %)
             'voltage': float(main_battery.get('voltage', 0)),
             'hv_temp_level': self._parse_hv_temp_level(ev_status.get('hvTempLevel', '0')),
-            'hv_temp_level_numeric': int(ev_status.get('hvTempLevel', 0)),  # числовое значение
+            'hv_temp_level_numeric': int(ev_status.get('hvTempLevel', 0)),
         }
 
     def _parse_hv_temp_level(self, level_code: str) -> str:

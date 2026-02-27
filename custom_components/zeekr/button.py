@@ -30,29 +30,17 @@ async def async_setup_entry(
 
     entities = []
 
-    # Всегда создаем общую кнопку
+    # 🎯 ВСЕГДА добавляем глобальную кнопку
     entities.append(ZeekrRefreshButton(coordinator))
 
-    # Создаем кнопку для каждой машины (если данные загружены)
-    async def add_vehicle_buttons():
-        """Отложенное добавление кнопок машин"""
-        await coordinator.async_request_refresh()
+    # 🎯 Добавляем кнопку для каждой машины
+    for vin in coordinator.data.keys():
+        if vin:  # Проверяем что VIN не пустой
+            entities.append(ZeekrRefreshVehicleButton(coordinator, vin))
 
-        if coordinator.data:
-            vehicle_entities = []
-            for vin in coordinator.data.keys():
-                if vin:
-                    vehicle_entities.append(ZeekrRefreshVehicleButton(coordinator, vin))
-
-            if vehicle_entities:
-                async_add_entities(vehicle_entities)
-                _LOGGER.info(f"✅ Added {len(vehicle_entities)} vehicle buttons")
-
-    # Добавляем общую кнопку сразу
+    # 🎯 ОДНОРАЗОВО добавляем все сущности
     async_add_entities(entities)
-
-    # Добавляем кнопки машин после загрузки данных
-    hass.async_create_task(add_vehicle_buttons())
+    _LOGGER.info(f"✅ Added {len(entities)} buttons")
 
 
 class ZeekrRefreshButton(CoordinatorEntity, ButtonEntity):
@@ -80,15 +68,7 @@ class ZeekrRefreshButton(CoordinatorEntity, ButtonEntity):
         }
 
     async def async_press(self) -> None:
-        """
-        Вызывается когда пользователь нажимает на кнопку
-
-        ОБЪЯСНЕНИЕ:
-        1. Логируем нажатие
-        2. Вызываем async_refresh() координатора
-        3. Координатор запрашивает новые данные с сервера
-        4. Все датчики обновляются автоматически
-        """
+        """Вызывается когда пользователь нажимает на кнопку"""
         _LOGGER.info("🔄 [REFRESH] Принудительное обновление всех автомобилей...")
 
         try:
@@ -125,9 +105,7 @@ class ZeekrRefreshVehicleButton(CoordinatorEntity, ButtonEntity):
         }
 
     async def async_press(self) -> None:
-        """
-        Вызывается когда пользователь нажимает на кнопку
-        """
+        """Вызывается когда пользователь нажимает на кнопку"""
         _LOGGER.info(f"🔄 [REFRESH] Принудительное обновление для {self.vin}...")
 
         try:

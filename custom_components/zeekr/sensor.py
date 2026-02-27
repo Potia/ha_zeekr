@@ -63,9 +63,9 @@ async def async_setup_entry(
             ZeekrLastUpdateTimeSensor(coordinator, vin),
 
             # ========== РАСШИРЕННЫЕ ДАТЧИКИ ==========
-            # 🔋 Батарея (расширено)
-            ZeekrSOCSensor(coordinator, vin),
-            ZeekrSOHSensor(coordinator, vin),
+            ZeekrChargeInputPowerSensor(coordinator, vin),  # 🎯 НОВЫЙ - кВт входа
+            ZeekrStateOfChargeSensor(coordinator, vin),  # 🎯 ПЕРЕИМЕНОВАН
+            ZeekrStateOfHealthSensor(coordinator, vin),  # 🎯 ПЕРЕИМЕНОВАН
             ZeekrBatteryExtendedVoltageSensor(coordinator, vin),
             ZeekrHVTempLevelSensor(coordinator, vin),
             ZeekrTimeToFullChargeSensor(coordinator, vin),
@@ -160,7 +160,7 @@ class ZeekrBaseSensor(CoordinatorEntity, SensorEntity):
 # ==================== ОСНОВНЫЕ ДАТЧИКИ ====================
 
 class ZeekrBatterySensor(ZeekrBaseSensor):
-    """Battery charge level sensor"""
+    """Battery charge level sensor - РЕАЛЬНЫЙ процент батареи!"""
 
     _attr_name = "Battery"
     _attr_native_unit_of_measurement = PERCENTAGE
@@ -177,7 +177,7 @@ class ZeekrBatterySensor(ZeekrBaseSensor):
         parser = self._get_parser()
         if parser:
             battery = parser.get_battery_info()
-            return battery['charge_level']
+            return battery['battery_percentage']  # 🎯 РЕАЛЬНЫЙ ПРОЦЕНТ
         return None
 
     @property
@@ -189,7 +189,7 @@ class ZeekrBatterySensor(ZeekrBaseSensor):
             return {
                 "charge_status": battery['charge_status'],
                 "distance_to_empty": f"{battery['distance_to_empty']} км",
-                "avg_power_consumption": f"{battery['avg_power_consumption']} кВт",
+                "voltage": f"{battery['voltage']:.2f}V",
             }
         return {}
 
@@ -599,17 +599,15 @@ class ZeekrLastUpdateTimeSensor(ZeekrBaseSensor):
 # ==================== РАСШИРЕННЫЕ ДАТЧИКИ ====================
 # 🔋 БАТАРЕЯ (РАСШИРЕНО)
 
-class ZeekrSOCSensor(ZeekrBaseSensor):
-    """State of Charge - процент заряда батареи"""
+class ZeekrStateOfChargeSensor(ZeekrBaseSensor):
+    """State of Charge - какой-то внутренний параметр батереи"""
 
-    _attr_name = "Battery SOC"
-    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_name = "State of Charge"
     _attr_icon = "mdi:battery-heart"
-    _attr_device_class = SensorDeviceClass.BATTERY
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def _get_sensor_type(self) -> str:
-        return "battery_soc"
+        return "state_of_charge"
 
     @property
     def native_value(self) -> float:
@@ -620,17 +618,23 @@ class ZeekrSOCSensor(ZeekrBaseSensor):
             return battery['soc']
         return None
 
+    @property
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        """Дополнительная информация"""
+        return {
+            "note": "Внутренний параметр батареи (не процент)"
+        }
 
-class ZeekrSOHSensor(ZeekrBaseSensor):
-    """State of Health - здоровье батареи"""
 
-    _attr_name = "Battery SOH"
-    _attr_native_unit_of_measurement = PERCENTAGE
+class ZeekrStateOfHealthSensor(ZeekrBaseSensor):
+    """State of Health - какой-то внутренний параметр батереи"""
+
+    _attr_name = "State of Health"
     _attr_icon = "mdi:battery-check"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def _get_sensor_type(self) -> str:
-        return "battery_soh"
+        return "state_of_health"
 
     @property
     def native_value(self) -> float:
@@ -640,6 +644,13 @@ class ZeekrSOHSensor(ZeekrBaseSensor):
             battery = parser.get_battery_info()
             return battery['soh']
         return None
+
+    @property
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        """Дополнительная информация"""
+        return {
+            "note": "Внутренний параметр батереи (не процент здоровья)"
+        }
 
 
 class ZeekrBatteryExtendedVoltageSensor(ZeekrBaseSensor):
@@ -675,13 +686,26 @@ class ZeekrHVTempLevelSensor(ZeekrBaseSensor):
         return "hv_temp_level"
 
     @property
-    def native_value(self) -> int:
+    def native_value(self) -> str:
         """Вернуть уровень температуры"""
         parser = self._get_parser()
         if parser:
             battery = parser.get_battery_info()
+            # 🎯 Возвращаем строку с описанием
             return battery['hv_temp_level']
         return None
+
+    @property
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        """Дополнительная информация"""
+        parser = self._get_parser()
+        if parser:
+            battery = parser.get_battery_info()
+            return {
+                "numeric_value": battery['hv_temp_level_numeric'],
+                "description": "1=теплая, 2=немного холодная, 3=холодная, 4=сильно холодная"
+            }
+        return {}
 
 
 class ZeekrTimeToFullChargeSensor(ZeekrBaseSensor):
@@ -1217,4 +1241,24 @@ class ZeekrChargeStatusSensor(ZeekrBaseSensor):
         if parser:
             charging = parser.get_charging_info()
             return charging['charge_status']
+        return None
+class ZeekrChargeInputPowerSensor(ZeekrBaseSensor):
+    """Текущая мощность входа при зарядке (кВт)"""
+
+    _attr_name = "Charge Input Power"
+    _attr_native_unit_of_measurement = "kW"
+    _attr_icon = "mdi:lightning-bolt"
+    _attr_device_class = SensorDeviceClass.POWER
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def _get_sensor_type(self) -> str:
+        return "charge_input_power"
+
+    @property
+    def native_value(self) -> int:
+        """Вернуть кВт входа при зарядке"""
+        parser = self._get_parser()
+        if parser:
+            battery = parser.get_battery_info()
+            return int(battery['charge_level'])  # 🎯 это кВт входа
         return None
