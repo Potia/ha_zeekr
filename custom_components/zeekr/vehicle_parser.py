@@ -285,10 +285,10 @@ class VehicleDataParser:
     def _parse_fluid_level(self, level_code: str) -> str:
         """Парсит уровень жидкостей"""
         level_map = {
-            '0': 'Критично низко 🔴',
-            '1': 'Низко 🟡',
-            '2': 'Нормально 🟢',
-            '3': 'Полный 🟢',
+            '0': 'Низко 🟡',  # washerFluidLevelStatus: 0 - низко
+            '1': 'Нормально 🟢',
+            '2': 'Хорошо 🟢',
+            '3': 'Полный 🟢',  # brakeFluidLevelStatus: 3 - полный, engineCoolantLevelStatus: 3 - полный
         }
         return level_map.get(str(level_code), 'Неизвестно')
 

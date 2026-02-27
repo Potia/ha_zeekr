@@ -697,20 +697,21 @@ class ZeekrHVTempLevelSensor(ZeekrBaseSensor):
 
     _attr_name = "HV Temperature Level"
     _attr_icon = "mdi:thermometer-alert"
-    _attr_state_class = SensorStateClass.MEASUREMENT
+    # ❌ УДАЛЯЕМ: _attr_state_class = SensorStateClass.MEASUREMENT
+    # ❌ УДАЛЯЕМ: _attr_device_class = ...
+    # Оставляем только text!
 
     def _get_sensor_type(self) -> str:
         return "hv_temp_level"
 
     @property
     def native_value(self) -> str:
-        """Вернуть уровень температуры"""
+        """Вернуть уровень температуры (текст)"""
         parser = self._get_parser()
         if parser:
             battery = parser.get_battery_info()
-            # 🎯 Возвращаем строку с описанием
-            return battery['hv_temp_level']
-        return None
+            return battery['hv_temp_level']  # "Немного холодная ❄️"
+        return "Неизвестно"
 
     @property
     def extra_state_attributes(self) -> Dict[str, Any]:
@@ -720,7 +721,7 @@ class ZeekrHVTempLevelSensor(ZeekrBaseSensor):
             battery = parser.get_battery_info()
             return {
                 "numeric_value": battery['hv_temp_level_numeric'],
-                "description": "1=теплая, 2=немного холодная, 3=холодная, 4=сильно холодная"
+                "description": "1=теплая 🔥, 2=немного холодная ❄️, 3=холодная 🥶, 4=сильно холодная 🧊"
             }
         return {}
 
@@ -917,7 +918,7 @@ class ZeekrBrakeFluidLevelSensor(ZeekrBaseSensor):
         if parser:
             maintenance = parser.get_maintenance_info()
             return maintenance['brake_fluid_level']
-        return None
+        return "Неизвестно"
 
 
 class ZeekrWasherFluidLevelSensor(ZeekrBaseSensor):
@@ -936,7 +937,7 @@ class ZeekrWasherFluidLevelSensor(ZeekrBaseSensor):
         if parser:
             maintenance = parser.get_maintenance_info()
             return maintenance['washer_fluid_level']
-        return None
+        return "Неизвестно"
 
 
 class ZeekrEngineCoolantLevelSensor(ZeekrBaseSensor):
@@ -955,7 +956,7 @@ class ZeekrEngineCoolantLevelSensor(ZeekrBaseSensor):
         if parser:
             maintenance = parser.get_maintenance_info()
             return maintenance['engine_coolant_level']
-        return None
+        return "Неизвестно"
 
 
 # ==================== 💨 ВОЗДУХ (РАСШИРЕНО) ====================
