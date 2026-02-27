@@ -59,20 +59,20 @@ class VehicleDataParser:
 
         return {
             # 🎯 ОСНОВНАЯ БАТАРЕЯ (%)
-            'battery_percentage': int(float(ev_status.get('chargeLevel', 0))),  # 71% - основная батарея EV
+            'battery_percentage': int(float(ev_status.get('chargeLevel', 0))),  # 71%
 
-            'distance_to_empty': int(float(ev_status.get('distanceToEmptyOnBatteryOnly', 0))),  # 324 км
+            'distance_to_empty': int(float(ev_status.get('distanceToEmptyOnBatteryOnly', 0))),
             'charge_status': self._parse_charge_status(ev_status.get('chargeSts', '0')),
-            'avg_power_consumption': float(ev_status.get('averPowerConsumption', 0)),  # 24.2 кВт расход
+            'avg_power_consumption': float(ev_status.get('averPowerConsumption', 0)),  # 24.2 кВт
             'time_to_fully_charged': int(float(ev_status.get('timeToFullyCharged', 0))),
 
             # 🎯 12V БАТАРЕЯ (вспомогательная)
-            'aux_battery_percentage': float(main_battery.get('chargeLevel', 0)),  # 98.4% - 12V батарея
-            'aux_battery_voltage': float(main_battery.get('voltage', 0)),  # 12.225V
+            'aux_battery_percentage': float(main_battery.get('chargeLevel', 0)),  # 98.4%
+            'aux_battery_voltage': float(main_battery.get('voltage', 0)),  # 12.225V ✅ ИСПРАВЛЕНО!
 
-            # Неизвестные параметры (оставляем как есть)
-            'soc': float(ev_status.get('stateOfCharge', 0)),  # 1 - неизвестное
-            'soh': float(ev_status.get('stateOfHealth', 0)),  # 0 - неизвестное
+            # Неизвестные параметры
+            'soc': float(ev_status.get('stateOfCharge', 0)),
+            'soh': float(ev_status.get('stateOfHealth', 0)),
 
             # Температура батареи
             'hv_temp_level': self._parse_hv_temp_level(ev_status.get('hvTempLevel', '0')),
