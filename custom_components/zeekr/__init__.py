@@ -220,26 +220,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             except Exception as e:
                 _LOGGER.error(f"❌ Error listing responses: {e}", exc_info=True)
 
-        # Регистрируем все сервисы
+        # ✅ РЕГИСТРИРУЕМ БЕЗ 'description' (старые версии HA не поддерживают)
         hass.services.async_register(
             DOMAIN,
             'save_response',
-            handle_save_response,
-            description='Manually save current server response'
+            handle_save_response
         )
 
         hass.services.async_register(
             DOMAIN,
             'refresh_and_save',
-            handle_refresh_and_save,
-            description='Refresh data and save response'
+            handle_refresh_and_save
         )
 
         hass.services.async_register(
             DOMAIN,
             'list_responses',
-            handle_list_responses,
-            description='List all saved server responses'
+            handle_list_responses
         )
 
         _LOGGER.info("✅ Zeekr services registered:")
