@@ -105,6 +105,14 @@ async def async_setup_entry(
 
             # 🔐 Информация
             ZeekrPropulsionTypeSensor(coordinator, vin),
+            # ⚡ Зарядка
+            ZeekrChargePileVoltageSensor(coordinator, vin),
+            ZeekrCurrentPowerInputSensor(coordinator, vin),
+            ZeekrDCChargeCurrentSensor(coordinator, vin),
+            ZeekrChargeStatusSensor(coordinator, vin),
+
+            # 🔐 Информация
+            ZeekrPropulsionTypeSensor(coordinator, vin),
         ])
 
     async_add_entities(entities)
@@ -1124,4 +1132,89 @@ class ZeekrPropulsionTypeSensor(ZeekrBaseSensor):
         parser = self._get_parser()
         if parser:
             return parser.get_propulsion_type()
+        return None
+
+# ==================== ⚡ ЗАРЯДКА ====================
+
+class ZeekrChargePileVoltageSensor(ZeekrBaseSensor):
+    """Вольтаж на зарядке"""
+
+    _attr_name = "Charge Pile Voltage"
+    _attr_native_unit_of_measurement = "V"
+    _attr_icon = "mdi:flash"
+    _attr_device_class = SensorDeviceClass.VOLTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def _get_sensor_type(self) -> str:
+        return "charge_pile_voltage"
+
+    @property
+    def native_value(self) -> float:
+        """Вернуть вольтаж на зарядке"""
+        parser = self._get_parser()
+        if parser:
+            charging = parser.get_charging_info()
+            return round(charging['charge_pile_voltage'], 1)
+        return None
+
+
+class ZeekrCurrentPowerInputSensor(ZeekrBaseSensor):
+    """Текущая мощность входа (кВт приходит на машину)"""
+
+    _attr_name = "Current Power Input"
+    _attr_native_unit_of_measurement = "kW"
+    _attr_icon = "mdi:flash-outline"
+    _attr_device_class = SensorDeviceClass.POWER
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def _get_sensor_type(self) -> str:
+        return "current_power_input"
+
+    @property
+    def native_value(self) -> float:
+        """Вернуть текущую мощность входа"""
+        parser = self._get_parser()
+        if parser:
+            charging = parser.get_charging_info()
+            return round(charging['current_power_input'], 1)
+        return None
+
+
+class ZeekrDCChargeCurrentSensor(ZeekrBaseSensor):
+    """Ток DC зарядки"""
+
+    _attr_name = "DC Charge Current"
+    _attr_native_unit_of_measurement = "A"
+    _attr_icon = "mdi:lightning-bolt"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def _get_sensor_type(self) -> str:
+        return "dc_charge_current"
+
+    @property
+    def native_value(self) -> float:
+        """Вернуть ток DC зарядки"""
+        parser = self._get_parser()
+        if parser:
+            charging = parser.get_charging_info()
+            return round(charging['dc_charge_pile_current'], 1)
+        return None
+
+
+class ZeekrChargeStatusSensor(ZeekrBaseSensor):
+    """Статус зарядки"""
+
+    _attr_name = "Charge Status"
+    _attr_icon = "mdi:battery-charging-wireless"
+
+    def _get_sensor_type(self) -> str:
+        return "charge_status_sensor"
+
+    @property
+    def native_value(self) -> str:
+        """Вернуть статус зарядки"""
+        parser = self._get_parser()
+        if parser:
+            charging = parser.get_charging_info()
+            return charging['charge_status']
         return None
