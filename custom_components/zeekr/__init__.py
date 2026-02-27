@@ -2,11 +2,14 @@
 """Zeekr integration for Home Assistant"""
 
 import logging
+import os
+import json
 from typing import Final
+from datetime import datetime
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
 
 from .const import DOMAIN
 from .zeekr_api import ZeekrAPI
@@ -47,6 +50,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.error(f"❌ Missing required token fields: {missing_fields}")
             return False
 
+        # Создаем папку для сохранения ответов сервера
+        responses_dir = os.path.join(hass.config.path('www'), 'zeekr_responses')
+        os.makedirs(responses_dir, exist_ok=True)
+        _LOGGER.info(f"📁 Responses directory: {responses_dir}")
+
         # Создаем API клиент
         api_client = ZeekrAPI(
             access_token=tokens.get('accessToken'),
@@ -57,7 +65,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.info("✅ API client created")
 
         # Создаем coordinator
-        coordinator = ZeekrDataCoordinator(hass, api_client)
+        coordinator = ZeekrDataCoordinator(hass, api_client, responses_dir)
         _LOGGER.info("✅ Coordinator created")
 
         # Получаем первые данные
@@ -73,6 +81,143 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # ✅ УСТАНАВЛИВАЕМ PLATFORMS (включая BUTTON)
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         _LOGGER.info(f"✅ Platforms configured: {PLATFORMS}")
+
+        # ========== РЕГИСТРИРУЕМ SERVICES ==========
+
+        async def handle_save_response(call: ServiceCall) -> None:
+            """
+            Сервис для ручного сохранения ответа сервера
+
+            Использование:
+            service: zeekr.save_response
+            data:
+              filename: "manual_response.json"
+              description: "Ответ при ошибке"
+            """
+            _LOGGER.info("📥 Manual save response called")
+
+            try:
+                filename = call.data.get('filename', f'response_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json')
+                description = call.data.get('description', 'Manual save')
+
+                # Получаем последние данные
+                for entry_id, coord in hass.data.get(DOMAIN, {}).items():
+                    if isinstance(coord, ZeekrDataCoordinator):
+                        if coord.last_response:
+                            filepath = os.path.join(responses_dir, filename)
+
+                            response_with_metadata = {
+                                "_metadata": {
+                                    "saved_at": datetime.now().isoformat(),
+                                    "description": description,
+                                    "entry_id": entry_id
+                                },
+                                "data": coord.last_response
+                            }
+
+                            with open(filepath, 'w', encoding='utf-8') as f:
+                                json.dump(response_with_metadata, f, ensure_ascii=False, indent=2)
+
+                            _LOGGER.info(f"✅ Response saved to {filepath}")
+                            return
+
+            except Exception as e:
+                _LOGGER.error(f"❌ Error saving response: {e}", exc_info=True)
+
+        async def handle_refresh_and_save(call: ServiceCall) -> None:
+            """
+            Обновляет данные и сохраняет ответ
+
+            Использование:
+            service: zeekr.refresh_and_save
+            data:
+              description: "Информация при зарядке"
+            """
+            _LOGGER.info("🔄 Refresh and save called")
+
+            try:
+                for entry_id, coord in hass.data.get(DOMAIN, {}).items():
+                    if isinstance(coord, ZeekrDataCoordinator):
+                        await coord.async_refresh()
+
+                        # Сохраняем ответ с описанием
+                        if coord.last_response:
+                            description = call.data.get('description', 'Auto refresh')
+                            filename = f"response_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                            filepath = os.path.join(responses_dir, filename)
+
+                            response_with_metadata = {
+                                "_metadata": {
+                                    "saved_at": datetime.now().isoformat(),
+                                    "description": description,
+                                    "entry_id": entry_id,
+                                    "auto_save": True
+                                },
+                                "data": coord.last_response
+                            }
+
+                            with open(filepath, 'w', encoding='utf-8') as f:
+                                json.dump(response_with_metadata, f, ensure_ascii=False, indent=2)
+
+                            _LOGGER.info(f"✅ Response auto-saved to {filepath}")
+
+            except Exception as e:
+                _LOGGER.error(f"❌ Error in refresh and save: {e}", exc_info=True)
+
+        async def handle_list_responses(call: ServiceCall) -> None:
+            """
+            Выводит список всех сохраненных ответов
+
+            Использование:
+            service: zeekr.list_responses
+            """
+            _LOGGER.info("📋 Listing saved responses")
+
+            try:
+                if os.path.exists(responses_dir):
+                    files = os.listdir(responses_dir)
+                    json_files = [f for f in files if f.endswith('.json')]
+
+                    if json_files:
+                        _LOGGER.info(f"📁 Found {len(json_files)} response files:")
+                        for f in json_files:
+                            filepath = os.path.join(responses_dir, f)
+                            size = os.path.getsize(filepath)
+                            _LOGGER.info(f"  - {f} ({size} bytes)")
+                    else:
+                        _LOGGER.info("No response files found")
+                else:
+                    _LOGGER.warning(f"Responses directory not found: {responses_dir}")
+
+            except Exception as e:
+                _LOGGER.error(f"❌ Error listing responses: {e}", exc_info=True)
+
+        # Регистрируем все сервисы
+        hass.services.async_register(
+            DOMAIN,
+            'save_response',
+            handle_save_response,
+            description='Manually save current server response'
+        )
+
+        hass.services.async_register(
+            DOMAIN,
+            'refresh_and_save',
+            handle_refresh_and_save,
+            description='Refresh data and save response'
+        )
+
+        hass.services.async_register(
+            DOMAIN,
+            'list_responses',
+            handle_list_responses,
+            description='List all saved server responses'
+        )
+
+        _LOGGER.info("✅ Zeekr services registered:")
+        _LOGGER.info("   - zeekr.save_response")
+        _LOGGER.info("   - zeekr.refresh_and_save")
+        _LOGGER.info("   - zeekr.list_responses")
 
         _LOGGER.info("🎉 Zeekr integration setup COMPLETE!")
 
@@ -94,6 +239,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if unload_ok:
             hass.data[DOMAIN].pop(entry.entry_id)
             _LOGGER.info("✅ Zeekr integration unloaded")
+
+        # Удаляем зарегистрированные сервисы
+        hass.services.async_remove(DOMAIN, 'save_response')
+        hass.services.async_remove(DOMAIN, 'refresh_and_save')
+        hass.services.async_remove(DOMAIN, 'list_responses')
+        _LOGGER.info("✅ Zeekr services removed")
 
         return unload_ok
 
