@@ -60,14 +60,12 @@ async def async_setup_entry(
             ZeekrTirePressureDriverRearSensor(coordinator, vin),
             ZeekrTirePressurePassengerRearSensor(coordinator, vin),
             ZeekrInteriorPM25Sensor(coordinator, vin),
-            ZeekrParkTimeSensor(coordinator, vin),
             ZeekrLastUpdateTimeSensor(coordinator, vin),
 
             # ========== РАСШИРЕННЫЕ ДАТЧИКИ ==========
             # 🔋 Батарея (расширено)
             ZeekrStateOfChargeSensor(coordinator, vin),
             ZeekrStateOfHealthSensor(coordinator, vin),
-            ZeekrBatteryExtendedVoltageSensor(coordinator, vin),
             ZeekrHVTempLevelSensor(coordinator, vin),
             ZeekrTimeToFullChargeSensor(coordinator, vin),
 
@@ -509,58 +507,6 @@ class ZeekrInteriorPM25Sensor(ZeekrBaseSensor):
         return None
 
 
-class ZeekrParkTimeSensor(ZeekrBaseSensor):
-    """Park time sensor"""
-
-    _attr_name = "Park Time"
-    _attr_icon = "mdi:clock"
-
-    def _get_sensor_type(self) -> str:
-        return "park_time"
-
-    @property
-    def native_value(self) -> str:
-        """Return park time as formatted text"""
-        parser = self._get_parser()
-        if parser:
-            park_time_ms = int(parser.data.get('parkTime', {}).get('status', 0))
-
-            if park_time_ms == 0:
-                return "Не припаркован"
-
-            park_datetime = datetime.fromtimestamp(park_time_ms / 1000)
-            current_time = datetime.now()
-            park_duration = current_time - park_datetime
-
-            total_seconds = int(park_duration.total_seconds())
-            days = total_seconds // 86400
-            hours = (total_seconds % 86400) // 3600
-            minutes = (total_seconds % 3600) // 60
-
-            if days > 0:
-                return f"{days}д {hours}ч {minutes}м припаркован"
-            elif hours > 0:
-                return f"{hours}ч {minutes}м припаркован"
-            else:
-                return f"{minutes}м припаркован"
-
-        return "N/A"
-
-    @property
-    def extra_state_attributes(self) -> Dict[str, Any]:
-        """Return additional attributes"""
-        parser = self._get_parser()
-        if parser:
-            park_time_ms = int(parser.data.get('parkTime', {}).get('status', 0))
-
-            if park_time_ms > 0:
-                park_datetime = datetime.fromtimestamp(park_time_ms / 1000)
-                return {
-                    "parked_since": park_datetime.strftime('%Y-%m-%d %H:%M:%S'),
-                }
-        return {}
-
-
 class ZeekrLastUpdateTimeSensor(ZeekrBaseSensor):
     """Last update time sensor - when vehicle last connected to server"""
 
@@ -668,29 +614,6 @@ class ZeekrStateOfHealthSensor(ZeekrBaseSensor):
         return {
             "note": "Внутренний параметр батереи (не процент здоровья)"
         }
-
-
-class ZeekrBatteryExtendedVoltageSensor(ZeekrBaseSensor):
-    """Напряжение батареи (расширено)"""
-
-    _attr_name = "Battery Voltage Extended"
-    _attr_native_unit_of_measurement = "V"
-    _attr_icon = "mdi:lightning-bolt"
-    _attr_device_class = SensorDeviceClass.VOLTAGE
-    _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def _get_sensor_type(self) -> str:
-        return "battery_voltage_extended"
-
-    @property
-    def native_value(self) -> float:
-        """Вернуть напряжение 12V батареи"""
-        parser = self._get_parser()
-        if parser:
-            battery = parser.get_battery_info()
-            return round(battery['aux_battery_voltage'], 2)  # ✅ 12.225V
-        return None
-
 
 class ZeekrHVTempLevelSensor(ZeekrBaseSensor):
     """Уровень HV температуры батареи"""
