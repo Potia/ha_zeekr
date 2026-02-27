@@ -3,6 +3,7 @@
 
 import logging
 from typing import Any, Dict
+from datetime import datetime
 
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -502,7 +503,6 @@ class ZeekrParkTimeSensor(ZeekrBaseSensor):
             if park_time_ms == 0:
                 return "Не припаркован"
 
-            from datetime import datetime
             park_datetime = datetime.fromtimestamp(park_time_ms / 1000)
             current_time = datetime.now()
             park_duration = current_time - park_datetime
@@ -529,7 +529,6 @@ class ZeekrParkTimeSensor(ZeekrBaseSensor):
             park_time_ms = int(parser.data.get('parkTime', {}).get('status', 0))
 
             if park_time_ms > 0:
-                from datetime import datetime
                 park_datetime = datetime.fromtimestamp(park_time_ms / 1000)
                 return {
                     "parked_since": park_datetime.strftime('%Y-%m-%d %H:%M:%S'),
@@ -553,7 +552,6 @@ class ZeekrLastUpdateTimeSensor(ZeekrBaseSensor):
         if parser:
             timestamp = int(parser.data.get('updateTime', 0))
             if timestamp:
-                from datetime import datetime
                 update_datetime = datetime.fromtimestamp(timestamp / 1000)
                 return update_datetime.strftime('%Y-%m-%d %H:%M:%S')
         return "N/A"
@@ -565,7 +563,6 @@ class ZeekrLastUpdateTimeSensor(ZeekrBaseSensor):
         if parser:
             timestamp = int(parser.data.get('updateTime', 0))
             if timestamp:
-                from datetime import datetime
                 update_datetime = datetime.fromtimestamp(timestamp / 1000)
                 current_time = datetime.now()
                 time_diff = current_time - update_datetime
