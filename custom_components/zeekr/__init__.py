@@ -21,6 +21,7 @@ PLATFORMS: Final = [
     Platform.BINARY_SENSOR,
     Platform.DEVICE_TRACKER,
     Platform.BUTTON,
+    # Platform.LIGHT,  # Если добавим огни потом
 ]
 
 
