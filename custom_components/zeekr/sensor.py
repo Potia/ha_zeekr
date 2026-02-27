@@ -63,9 +63,9 @@ async def async_setup_entry(
             ZeekrLastUpdateTimeSensor(coordinator, vin),
 
             # ========== РАСШИРЕННЫЕ ДАТЧИКИ ==========
-            ZeekrChargeInputPowerSensor(coordinator, vin),  # 🎯 НОВЫЙ - кВт входа
-            ZeekrStateOfChargeSensor(coordinator, vin),  # 🎯 ПЕРЕИМЕНОВАН
-            ZeekrStateOfHealthSensor(coordinator, vin),  # 🎯 ПЕРЕИМЕНОВАН
+            # 🔋 Батарея (расширено)
+            ZeekrStateOfChargeSensor(coordinator, vin),
+            ZeekrStateOfHealthSensor(coordinator, vin),
             ZeekrBatteryExtendedVoltageSensor(coordinator, vin),
             ZeekrHVTempLevelSensor(coordinator, vin),
             ZeekrTimeToFullChargeSensor(coordinator, vin),
@@ -160,7 +160,7 @@ class ZeekrBaseSensor(CoordinatorEntity, SensorEntity):
 # ==================== ОСНОВНЫЕ ДАТЧИКИ ====================
 
 class ZeekrBatterySensor(ZeekrBaseSensor):
-    """Battery charge level sensor - РЕАЛЬНЫЙ процент батареи!"""
+    """Battery charge level sensor - основная батарея EV"""
 
     _attr_name = "Battery"
     _attr_native_unit_of_measurement = PERCENTAGE
@@ -177,7 +177,7 @@ class ZeekrBatterySensor(ZeekrBaseSensor):
         parser = self._get_parser()
         if parser:
             battery = parser.get_battery_info()
-            return battery['battery_percentage']  # 🎯 РЕАЛЬНЫЙ ПРОЦЕНТ
+            return battery['battery_percentage']  # 71%
         return None
 
     @property
@@ -189,9 +189,52 @@ class ZeekrBatterySensor(ZeekrBaseSensor):
             return {
                 "charge_status": battery['charge_status'],
                 "distance_to_empty": f"{battery['distance_to_empty']} км",
-                "voltage": f"{battery['voltage']:.2f}V",
+                "avg_power_consumption": f"{battery['avg_power_consumption']} кВт",
             }
         return {}
+
+class ZeekrAuxBatteryPercentageSensor(ZeekrBaseSensor):
+    """12V auxiliary battery percentage"""
+
+    _attr_name = "12V Battery"
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_icon = "mdi:battery-12v"
+    _attr_device_class = SensorDeviceClass.BATTERY
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def _get_sensor_type(self) -> str:
+        return "battery_12v_percentage"
+
+    @property
+    def native_value(self) -> float:
+        """Return 12V battery percentage"""
+        parser = self._get_parser()
+        if parser:
+            battery = parser.get_battery_info()
+            return round(battery['aux_battery_percentage'], 1)  # 98.4%
+        return None
+
+
+class ZeekrAuxBatteryVoltageSensor(ZeekrBaseSensor):
+    """12V auxiliary battery voltage"""
+
+    _attr_name = "12V Battery Voltage"
+    _attr_native_unit_of_measurement = "V"
+    _attr_icon = "mdi:battery-12v"
+    _attr_device_class = SensorDeviceClass.VOLTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def _get_sensor_type(self) -> str:
+        return "battery_12v_voltage"
+
+    @property
+    def native_value(self) -> float:
+        """Return 12V battery voltage"""
+        parser = self._get_parser()
+        if parser:
+            battery = parser.get_battery_info()
+            return round(battery['aux_battery_voltage'], 3)  # 12.225V
+        return None
 
 
 class ZeekrDistanceToEmptySensor(ZeekrBaseSensor):
@@ -465,30 +508,6 @@ class ZeekrInteriorPM25Sensor(ZeekrBaseSensor):
         if parser:
             pollution = parser.get_pollution_info()
             return pollution['interior_pm25']
-        return None
-
-
-class ZeekrMainBatteryVoltageSensor(ZeekrBaseSensor):
-    """Main battery voltage (12V) sensor"""
-
-    _attr_name = "Main Battery Voltage"
-    _attr_native_unit_of_measurement = "V"
-    _attr_icon = "mdi:battery-12v"
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_device_class = SensorDeviceClass.VOLTAGE
-
-    def _get_sensor_type(self) -> str:
-        return "main_battery_voltage"
-
-    @property
-    def native_value(self) -> float:
-        """Return main battery voltage"""
-        parser = self._get_parser()
-        if parser:
-            maintenance = parser.data.get('additionalVehicleStatus', {}).get('maintenanceStatus', {})
-            battery_info = maintenance.get('mainBatteryStatus', {})
-            voltage = float(battery_info.get('voltage', 0))
-            return round(voltage, 2)
         return None
 
 

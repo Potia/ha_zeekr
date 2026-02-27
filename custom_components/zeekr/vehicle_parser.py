@@ -58,20 +58,23 @@ class VehicleDataParser:
             'mainBatteryStatus', {})
 
         return {
-            # chargeLevel из electricVehicleStatus - это кВт входа (при зарядке)
-            'charge_level': int(float(ev_status.get('chargeLevel', 0))),  # кВт входа
+            # 🎯 ОСНОВНАЯ БАТАРЕЯ (%)
+            'battery_percentage': int(float(ev_status.get('chargeLevel', 0))),  # 71% - основная батарея EV
 
-            'distance_to_empty': int(float(ev_status.get('distanceToEmptyOnBatteryOnly', 0))),
+            'distance_to_empty': int(float(ev_status.get('distanceToEmptyOnBatteryOnly', 0))),  # 324 км
             'charge_status': self._parse_charge_status(ev_status.get('chargeSts', '0')),
-            'avg_power_consumption': float(ev_status.get('averPowerConsumption', 0)),  # кВт расходуется
+            'avg_power_consumption': float(ev_status.get('averPowerConsumption', 0)),  # 24.2 кВт расход
             'time_to_fully_charged': int(float(ev_status.get('timeToFullyCharged', 0))),
 
-            # mainBatteryStatus.chargeLevel это РЕАЛЬНЫЙ процент заряда батареи!
-            'battery_percentage': int(float(main_battery.get('chargeLevel', 0))),  # 🎯 РЕАЛЬНЫЙ ПРОЦЕНТ!
+            # 🎯 12V БАТАРЕЯ (вспомогательная)
+            'aux_battery_percentage': float(main_battery.get('chargeLevel', 0)),  # 98.4% - 12V батарея
+            'aux_battery_voltage': float(main_battery.get('voltage', 0)),  # 12.225V
 
-            'soc': float(main_battery.get('stateOfCharge', 0)),  # State of Charge (не %)
-            'soh': float(main_battery.get('stateOfHealth', 0)),  # State of Health (не %)
-            'voltage': float(main_battery.get('voltage', 0)),
+            # Неизвестные параметры (оставляем как есть)
+            'soc': float(ev_status.get('stateOfCharge', 0)),  # 1 - неизвестное
+            'soh': float(ev_status.get('stateOfHealth', 0)),  # 0 - неизвестное
+
+            # Температура батареи
             'hv_temp_level': self._parse_hv_temp_level(ev_status.get('hvTempLevel', '0')),
             'hv_temp_level_numeric': int(ev_status.get('hvTempLevel', 0)),
         }
