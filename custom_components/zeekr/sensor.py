@@ -684,11 +684,11 @@ class ZeekrBatteryExtendedVoltageSensor(ZeekrBaseSensor):
 
     @property
     def native_value(self) -> float:
-        """Вернуть напряжение"""
+        """Вернуть напряжение 12V батареи"""
         parser = self._get_parser()
         if parser:
             battery = parser.get_battery_info()
-            return round(battery['voltage'], 2)
+            return round(battery['aux_battery_voltage'], 2)  # ✅ 12.225V
         return None
 
 
