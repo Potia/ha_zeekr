@@ -30,15 +30,29 @@ async def async_setup_entry(
 
     entities = []
 
-    # Создаем одну кнопку обновления для всего аккаунта
-    # (обновит все автомобили)
+    # Всегда создаем общую кнопку
     entities.append(ZeekrRefreshButton(coordinator))
 
-    # Для каждого автомобиля создаем кнопку
-    for vin in coordinator.data.keys():
-        entities.append(ZeekrRefreshVehicleButton(coordinator, vin))
+    # Создаем кнопку для каждой машины (если данные загружены)
+    async def add_vehicle_buttons():
+        """Отложенное добавление кнопок машин"""
+        await coordinator.async_request_refresh()
 
+        if coordinator.data:
+            vehicle_entities = []
+            for vin in coordinator.data.keys():
+                if vin:
+                    vehicle_entities.append(ZeekrRefreshVehicleButton(coordinator, vin))
+
+            if vehicle_entities:
+                async_add_entities(vehicle_entities)
+                _LOGGER.info(f"✅ Added {len(vehicle_entities)} vehicle buttons")
+
+    # Добавляем общую кнопку сразу
     async_add_entities(entities)
+
+    # Добавляем кнопки машин после загрузки данных
+    hass.async_create_task(add_vehicle_buttons())
 
 
 class ZeekrRefreshButton(CoordinatorEntity, ButtonEntity):
