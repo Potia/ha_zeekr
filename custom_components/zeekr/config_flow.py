@@ -92,9 +92,6 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
 
             try:
-                # ✅ ИСПРАВЛЕНО - правильные импорты
-                from .zeekr_storage import token_storage
-
                 auth = self.auth
                 mobile = self.mobile
 
@@ -152,21 +149,23 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         errors={"base": "cannot_get_secure_tokens"},
                     )
 
-                # Save tokens
-                def save_tokens():
-                    token_storage.save_tokens(secure_tokens)
-
-                await self.hass.async_add_executor_job(save_tokens)
-
                 _LOGGER.info("✅ Authentication successful!")
 
-                # Create config entry
+                # ✅ СОЗДАЕМ ENTRY С ТОКЕНАМИ
                 await self.async_set_unique_id("zeekr_main")
                 self._abort_if_unique_id_configured()
 
                 return self.async_create_entry(
                     title=f"Zeekr {mobile}",
-                    data={"mobile": mobile},
+                    data={
+                        "mobile": mobile,
+                        # ✅ СОХРАНЯЕМ ТОКЕНЫ В ENTRY!
+                        "accessToken": secure_tokens.get("accessToken"),
+                        "refreshToken": secure_tokens.get("refreshToken"),
+                        "userId": secure_tokens.get("userId"),
+                        "clientId": secure_tokens.get("clientId"),
+                        "device_id": secure_tokens.get("device_id"),
+                    },
                 )
 
             except Exception as e:

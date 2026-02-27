@@ -33,14 +33,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info(f"🔧 Setting up Zeekr integration for entry {entry.entry_id}")
 
     try:
-        # Загружаем токены
-        tokens = token_storage.load_tokens()
+        # ✅ ЗАГРУЖАЕМ ТОКЕНЫ ИЗ ENTRY (в приоритете)
+        tokens = dict(entry.data)
 
-        if not tokens:
-            _LOGGER.error("❌ No tokens found in storage")
+        # Резервно проверяем файл (для старых установок)
+        if not tokens or not tokens.get('accessToken'):
+            _LOGGER.warning("⚠️ No tokens in entry.data, trying file storage...")
+            tokens = token_storage.load_tokens()
+
+            if tokens:
+                # Обновляем entry с токенами из файла
+                hass.config_entries.async_update_entry(entry, data=tokens)
+                _LOGGER.info("✅ Tokens migrated from file to entry")
+
+        if not tokens or not tokens.get('accessToken'):
+            _LOGGER.error("❌ No tokens found in entry or file storage")
             return False
 
-        _LOGGER.info(f"✅ Tokens loaded")
+        _LOGGER.info(f"✅ Tokens loaded from entry.data")
 
         # Проверяем необходимые поля
         required_fields = ['accessToken', 'userId', 'clientId', 'device_id']
@@ -51,9 +61,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             return False
 
         # Создаем папку для сохранения ответов сервера
-        responses_dir = os.path.join(hass.config.path('www'), 'zeekr_responses')
-        os.makedirs(responses_dir, exist_ok=True)
-        _LOGGER.info(f"📁 Responses directory: {responses_dir}")
+        try:
+            responses_dir = os.path.join(hass.config.path('www'), 'zeekr_responses')
+            os.makedirs(responses_dir, exist_ok=True)
+            _LOGGER.info(f"📁 Responses directory: {responses_dir}")
+        except Exception as e:
+            _LOGGER.error(f"❌ Failed to create responses directory: {e}")
+            responses_dir = None
 
         # Создаем API клиент
         api_client = ZeekrAPI(
@@ -97,6 +111,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.info("📥 Manual save response called")
 
             try:
+                if not responses_dir:
+                    _LOGGER.error("❌ Responses directory not configured")
+                    return
+
                 filename = call.data.get('filename', f'response_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json')
                 description = call.data.get('description', 'Manual save')
 
@@ -121,6 +139,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                             _LOGGER.info(f"✅ Response saved to {filepath}")
                             return
 
+                _LOGGER.warning("⚠️ No vehicle data available to save")
+
             except Exception as e:
                 _LOGGER.error(f"❌ Error saving response: {e}", exc_info=True)
 
@@ -136,6 +156,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.info("🔄 Refresh and save called")
 
             try:
+                if not responses_dir:
+                    _LOGGER.error("❌ Responses directory not configured")
+                    return
+
                 for entry_id, coord in hass.data.get(DOMAIN, {}).items():
                     if isinstance(coord, ZeekrDataCoordinator):
                         await coord.async_refresh()
@@ -174,6 +198,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.info("📋 Listing saved responses")
 
             try:
+                if not responses_dir:
+                    _LOGGER.error("❌ Responses directory not configured")
+                    return
+
                 if os.path.exists(responses_dir):
                     files = os.listdir(responses_dir)
                     json_files = [f for f in files if f.endswith('.json')]
