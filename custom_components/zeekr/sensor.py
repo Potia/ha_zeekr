@@ -45,6 +45,8 @@ async def async_setup_entry(
         entities.extend([
             # ========== ОСНОВНЫЕ ДАТЧИКИ ==========
             ZeekrBatterySensor(coordinator, vin),
+            ZeekrAuxBatteryPercentageSensor(coordinator, vin),
+            ZeekrAuxBatteryVoltageSensor(coordinator, vin),
             ZeekrDistanceToEmptySensor(coordinator, vin),
             ZeekrInteriorTempSensor(coordinator, vin),
             ZeekrExteriorTempSensor(coordinator, vin),
@@ -58,7 +60,6 @@ async def async_setup_entry(
             ZeekrTirePressureDriverRearSensor(coordinator, vin),
             ZeekrTirePressurePassengerRearSensor(coordinator, vin),
             ZeekrInteriorPM25Sensor(coordinator, vin),
-            ZeekrMainBatteryVoltageSensor(coordinator, vin),
             ZeekrParkTimeSensor(coordinator, vin),
             ZeekrLastUpdateTimeSensor(coordinator, vin),
 
@@ -76,48 +77,45 @@ async def async_setup_entry(
             ZeekrTireTempDriverRearSensor(coordinator, vin),
             ZeekrTireTempPassengerRearSensor(coordinator, vin),
 
-            # 🚙 Движение (расширено)
+            # 🚙 Движение
             ZeekrTripMeter1Sensor(coordinator, vin),
             ZeekrTripMeter2Sensor(coordinator, vin),
 
-            # 🔧 Обслуживание (расширено)
+            # 🔧 Обслуживание
             ZeekrEngineHoursToServiceSensor(coordinator, vin),
             ZeekrBrakeFluidLevelSensor(coordinator, vin),
             ZeekrWasherFluidLevelSensor(coordinator, vin),
             ZeekrEngineCoolantLevelSensor(coordinator, vin),
 
-            # 💨 Воздух (расширено)
+            # 💨 Воздух
             ZeekrExteriorPM25LevelSensor(coordinator, vin),
             ZeekrRelativeHumiditySensor(coordinator, vin),
 
             # 🅿️ Парковка
             ZeekrParkDurationSensor(coordinator, vin),
 
-            # 🎯 Климат (расширено)
+            # 🎯 Климат
             ZeekrSteeringWheelHeatingStatusSensor(coordinator, vin),
             ZeekrDriverHeatingStatusSensor(coordinator, vin),
             ZeekrPassengerHeatingStatusSensor(coordinator, vin),
 
-            # 📍 Координаты (отдельные)
+            # 📍 Координаты
             ZeekrLatitudeSensor(coordinator, vin),
             ZeekrLongitudeSensor(coordinator, vin),
             ZeekrAltitudeSensor(coordinator, vin),
 
             # 🔐 Информация
             ZeekrPropulsionTypeSensor(coordinator, vin),
+
             # ⚡ Зарядка
             ZeekrChargePileVoltageSensor(coordinator, vin),
             ZeekrCurrentPowerInputSensor(coordinator, vin),
             ZeekrDCChargeCurrentSensor(coordinator, vin),
             ZeekrChargeStatusSensor(coordinator, vin),
-
-            # 🔐 Информация
-            ZeekrPropulsionTypeSensor(coordinator, vin),
         ])
 
     async_add_entities(entities)
     _LOGGER.info(f"✅ Added {len(entities)} sensors total for {len(coordinator.data)} vehicles")
-
 
 # ==================== БАЗОВЫЙ КЛАСС ====================
 
