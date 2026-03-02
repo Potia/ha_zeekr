@@ -15,7 +15,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import ZeekrDataCoordinator
-from vehicle_parser import VehicleDataParser
+from .vehicle_parser import VehicleDataParser
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,8 +32,9 @@ async def async_setup_entry(
     entities = []
 
     # Для каждого автомобиля создаем binary sensors
-    for vin in coordinator.data.keys():  # ← ИЗМЕНЕНО
+    for vin in coordinator.data.keys():
         entities.extend([
+            # ========== СТАНДАРТНЫЕ ДАТЧИКИ ==========
             ZeekrEngineStatusSensor(coordinator, vin),
             ZeekrDriverDoorSensor(coordinator, vin),
             ZeekrPassengerDoorSensor(coordinator, vin),
@@ -45,10 +46,30 @@ async def async_setup_entry(
             ZeekrPassengerWindowSensor(coordinator, vin),
             ZeekrDriverRearWindowSensor(coordinator, vin),
             ZeekrPassengerRearWindowSensor(coordinator, vin),
+
+            # ========== НОВЫЕ ДАТЧИКИ ==========
+            # ☀️ ПАНОРАМНАЯ КРЫША
+            ZeekrFrontShadeOpenSensor(coordinator, vin),
+            ZeekrRearShadeOpenSensor(coordinator, vin),
+            ZeekrRoofTransparentSensor(coordinator, vin),
+
+            # 🔒 РЕМНИ БЕЗОПАСНОСТИ
+            ZeekrSeatbeltDriverBinarySensor(coordinator, vin),
+            ZeekrSeatbeltPassengerBinarySensor(coordinator, vin),
+
+            # 📡 GPS
+            ZeekrGpsActiveSensor(coordinator, vin),
+
+            # 🚗 ТОРМОЖЕНИЕ
+            ZeekrBrakingSensor(coordinator, vin),
+            ZeekrEnergyRecoveryActiveSensor(coordinator, vin),
         ])
 
     async_add_entities(entities)
+    _LOGGER.info(f"✅ Added {len(entities)} binary sensors total")
 
+
+# ==================== БАЗОВЫЙ КЛАСС ====================
 
 class ZeekrBaseBinarySensor(CoordinatorEntity, BinarySensorEntity):
     """Base class for Zeekr binary sensors"""
@@ -86,6 +107,8 @@ class ZeekrBaseBinarySensor(CoordinatorEntity, BinarySensorEntity):
         self.async_write_ha_state()
 
 
+# ==================== СТАНДАРТНЫЕ ДАТЧИКИ ====================
+
 class ZeekrEngineStatusSensor(ZeekrBaseBinarySensor):
     """Engine status binary sensor"""
 
@@ -102,7 +125,7 @@ class ZeekrEngineStatusSensor(ZeekrBaseBinarySensor):
         parser = self._get_parser()
         if parser:
             status = parser.data.get('basicVehicleStatus', {}).get('engineStatus', '')
-            return status == 'engine_on'
+            return status == 'engine_running'
         return False
 
 
@@ -303,4 +326,165 @@ class ZeekrPassengerRearWindowSensor(ZeekrBaseBinarySensor):
         if parser:
             windows = parser.get_windows_info()
             return windows['passenger_rear_window'] == 'Открыто'
+        return False
+
+
+# ==================== ПАНОРАМНАЯ КРЫША (НОВОЕ) ====================
+
+class ZeekrFrontShadeOpenSensor(ZeekrBaseBinarySensor):
+    """Передняя затемняющая шторка открыта?"""
+
+    _attr_name = "Front Shade Open"
+    _attr_icon = "mdi:window-shutter"
+
+    def _get_sensor_type(self) -> str:
+        return "front_shade_open"
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if front shade is open"""
+        parser = self._get_parser()
+        if parser:
+            roof = parser.get_panoramic_roof_status()
+            return roof['front_shade_open']
+        return False
+
+
+class ZeekrRearShadeOpenSensor(ZeekrBaseBinarySensor):
+    """Задняя затемняющая шторка открыта?"""
+
+    _attr_name = "Rear Shade Open"
+    _attr_icon = "mdi:window-shutter"
+
+    def _get_sensor_type(self) -> str:
+        return "rear_shade_open"
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if rear shade is open"""
+        parser = self._get_parser()
+        if parser:
+            roof = parser.get_panoramic_roof_status()
+            return roof['rear_shade_open']
+        return False
+
+
+class ZeekrRoofTransparentSensor(ZeekrBaseBinarySensor):
+    """Крыша пропускает свет? (шторка открыта более чем на 50%)"""
+
+    _attr_name = "Roof Transparent"
+    _attr_icon = "mdi:window"
+    _attr_device_class = BinarySensorDeviceClass.WINDOW
+
+    def _get_sensor_type(self) -> str:
+        return "roof_transparent"
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if roof is transparent"""
+        parser = self._get_parser()
+        if parser:
+            roof = parser.get_panoramic_roof_status()
+            return roof['is_transparent']
+        return False
+
+
+# ========== РЕМНИ БЕЗОПАСНОСТИ (НОВОЕ) ==========
+
+class ZeekrSeatbeltDriverBinarySensor(ZeekrBaseBinarySensor):
+    """Водитель пристегнут?"""
+
+    _attr_name = "Seatbelt Driver"
+    _attr_icon = "mdi:seatbelt"
+
+    def _get_sensor_type(self) -> str:
+        return "seatbelt_driver_binary"
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if driver is belted"""
+        parser = self._get_parser()
+        if parser:
+            belts = parser.get_seatbelt_status()
+            return belts['driver_belted'].startswith('✅')
+        return False
+
+
+class ZeekrSeatbeltPassengerBinarySensor(ZeekrBaseBinarySensor):
+    """Пассажир пристегнут?"""
+
+    _attr_name = "Seatbelt Passenger"
+    _attr_icon = "mdi:seatbelt"
+
+    def _get_sensor_type(self) -> str:
+        return "seatbelt_passenger_binary"
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if passenger is belted"""
+        parser = self._get_parser()
+        if parser:
+            belts = parser.get_seatbelt_status()
+            return belts['passenger_belted'].startswith('✅')
+        return False
+
+
+# ========== GPS И НАВИГАЦИЯ (НОВОЕ) ==========
+
+class ZeekrGpsActiveSensor(ZeekrBaseBinarySensor):
+    """GPS активен?"""
+
+    _attr_name = "GPS Active"
+    _attr_icon = "mdi:satellite-variant"
+
+    def _get_sensor_type(self) -> str:
+        return "gps_active"
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if GPS is active"""
+        parser = self._get_parser()
+        if parser:
+            gps = parser.get_gps_status()
+            return gps['has_gps_signal']
+        return False
+
+
+# ========== ТОРМОЖЕНИЕ И ВОССТАНОВЛЕНИЕ (НОВОЕ) ==========
+
+class ZeekrBrakingSensor(ZeekrBaseBinarySensor):
+    """Машина тормозит? (восстановление энергии)"""
+
+    _attr_name = "Braking"
+    _attr_icon = "mdi:brake-fluid"
+
+    def _get_sensor_type(self) -> str:
+        return "braking"
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if vehicle is braking"""
+        parser = self._get_parser()
+        if parser:
+            brake = parser.get_brake_status()
+            return brake['is_braking']
+        return False
+
+
+class ZeekrEnergyRecoveryActiveSensor(ZeekrBaseBinarySensor):
+    """Рекуперативное торможение активно?"""
+
+    _attr_name = "Energy Recovery Active"
+    _attr_icon = "mdi:lightning-bolt"
+
+    def _get_sensor_type(self) -> str:
+        return "energy_recovery_active"
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if energy recovery is active"""
+        parser = self._get_parser()
+        if parser:
+            recovery = parser.estimate_battery_recovery()
+            return recovery['is_recovering']
         return False

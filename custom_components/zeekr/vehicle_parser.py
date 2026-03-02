@@ -1,6 +1,8 @@
 # custom_components/zeekr/vehicle_parser.py
+
 """
 Парсер данных автомобиля - извлечение и форматирование информации
+ОБНОВЛЕНО: Поддержка панорамной крыши с затемняющей шторкой
 """
 from typing import Dict, Any, Optional
 from datetime import datetime
@@ -12,15 +14,7 @@ class VehicleDataParser:
     def _calculate_dc_power(self, voltage: float, current: float) -> float:
         """
         Рассчитывает мощность DC зарядки
-
         Формула: Мощность (кВт) = Напряжение (В) × Ток (А) / 1000
-
-        Args:
-            voltage: Напряжение в вольтах
-            current: Ток в амперах
-
-        Returns:
-            Мощность в кВт
         """
         if voltage and current:
             power_kw = (voltage * abs(current)) / 1000
@@ -28,31 +22,14 @@ class VehicleDataParser:
         return 0.0
 
     def _calculate_discharge_power(self, voltage: float, current: float) -> float:
-        """
-        Рассчитывает мощность разрядки (V2L, V2H)
-
-        Args:
-            voltage: Напряжение в вольтах
-            current: Ток в амперах (отрицательный при разрядке)
-
-        Returns:
-            Мощность в кВт
-        """
+        """Рассчитывает мощность разрядки (V2L, V2H)"""
         if voltage and current:
             power_kw = (voltage * abs(current)) / 1000
             return round(power_kw, 1)
         return 0.0
 
     def _parse_dc_charge_status(self, status_code: str) -> str:
-        """
-        Парсит статус DC зарядки
-
-        Args:
-            status_code: Код статуса (0, 1, 2, 3 и т.д.)
-
-        Returns:
-            Описание статуса на русском языке
-        """
+        """Парсит статус DC зарядки"""
         status_map = {
             '0': '❌ Не активна',
             '1': '⚡ Активна (подключена)',
@@ -63,15 +40,7 @@ class VehicleDataParser:
         return status_map.get(str(status_code), f'❓ Неизвестно ({status_code})')
 
     def _parse_dc_dc_status(self, status_code: str) -> str:
-        """
-        Парсит статус DC/DC конвертера (преобразует 400В в 12В)
-
-        Args:
-            status_code: Код статуса
-
-        Returns:
-            Описание статуса
-        """
+        """Парсит статус DC/DC конвертера (преобразует 400В в 12В)"""
         status_map = {
             '0': '❌ Отключен',
             '1': '🔄 Переход',
@@ -81,15 +50,7 @@ class VehicleDataParser:
         return status_map.get(str(status_code), f'❓ Неизвестно ({status_code})')
 
     def _parse_charger_state(self, state_code: str) -> str:
-        """
-        Парсит состояние зарядного устройства
-
-        Args:
-            state_code: Код состояния (0-15)
-
-        Returns:
-            Описание состояния
-        """
+        """Парсит состояние зарядного устройства"""
         state_map = {
             '0': '❌ Отключено',
             '1': '🔌 Подключено (ожидание)',
@@ -100,13 +61,9 @@ class VehicleDataParser:
             '15': '⚙️ Готово',
         }
         return state_map.get(str(state_code), f'⏳ Состояние {state_code}')
-    def __init__(self, raw_data: Dict[str, Any]):
-        """
-        Инициализация парсера
 
-        Args:
-            raw_data: Полные данные статуса автомобиля из API
-        """
+    def __init__(self, raw_data: Dict[str, Any]):
+        """Инициализация парсера"""
         self.data = raw_data
 
     # ==================== БАЗОВАЯ ИНФОРМАЦИЯ ====================
@@ -118,7 +75,7 @@ class VehicleDataParser:
     def get_engine_status(self) -> str:
         """Получает статус двигателя"""
         status = self.data.get('basicVehicleStatus', {}).get('engineStatus', 'unknown')
-        return '✅ Работает' if status == 'engine_on' else '❌ Выключен'
+        return '✅ Работает' if status == 'engine_running' else '❌ Выключен'
 
     def get_last_update_time(self) -> str:
         """Получает время последнего обновления"""
@@ -140,6 +97,13 @@ class VehicleDataParser:
         prop_type = self.data.get('configuration', {}).get('propulsionType', '0')
         return propulsion_map.get(str(prop_type), 'Неизвестно')
 
+    def get_is_moving(self) -> bool:
+        """Определяет едет ли автомобиль прямо сейчас"""
+        basic = self.data.get('basicVehicleStatus', {})
+        speed = float(basic.get('speed', 0))
+        speed_valid = basic.get('speedValidity', 'false') == 'true'
+        return speed > 0 and speed_valid
+
     # ==================== БАТАРЕЯ И ЗАРЯД ====================
 
     def get_battery_info(self) -> Dict[str, Any]:
@@ -150,16 +114,15 @@ class VehicleDataParser:
 
         return {
             # 🎯 ОСНОВНАЯ БАТАРЕЯ (%)
-            'battery_percentage': int(float(ev_status.get('chargeLevel', 0))),  # 71%
-
+            'battery_percentage': int(float(ev_status.get('chargeLevel', 0))),
             'distance_to_empty': int(float(ev_status.get('distanceToEmptyOnBatteryOnly', 0))),
             'charge_status': self._parse_charge_status(ev_status.get('chargeSts', '0')),
-            'avg_power_consumption': float(ev_status.get('averPowerConsumption', 0)),  # 24.2 кВт
+            'avg_power_consumption': float(ev_status.get('averPowerConsumption', 0)),
             'time_to_fully_charged': int(float(ev_status.get('timeToFullyCharged', 0))),
 
             # 🎯 12V БАТАРЕЯ (вспомогательная)
-            'aux_battery_percentage': float(main_battery.get('chargeLevel', 0)),  # 98.4%
-            'aux_battery_voltage': float(main_battery.get('voltage', 0)),  # 12.225V ✅ ИСПРАВЛЕНО!
+            'aux_battery_percentage': float(main_battery.get('chargeLevel', 0)),
+            'aux_battery_voltage': float(main_battery.get('voltage', 0)),
 
             # Неизвестные параметры
             'soc': float(ev_status.get('stateOfCharge', 0)),
@@ -212,12 +175,10 @@ class VehicleDataParser:
         """Получает информацию о положении автомобиля"""
         position = self.data.get('basicVehicleStatus', {}).get('position', {})
 
-        # Проверяем есть ли данные координат
         latitude_raw = position.get('latitude', '')
         longitude_raw = position.get('longitude', '')
 
         if latitude_raw and longitude_raw:
-            # Преобразуем из целых чисел в градусы
             latitude = int(latitude_raw) / 1e7
             longitude = int(longitude_raw) / 1e7
         else:
@@ -230,6 +191,22 @@ class VehicleDataParser:
             'altitude': int(position.get('altitude', 0)) if position.get('altitude') else 0,
             'direction': int(position.get('direction', 0)) if position.get('direction') else 0,
             'can_be_trusted': bool(position.get('posCanBeTrusted', 'false') == 'true'),
+        }
+
+    def get_gps_status(self) -> Dict[str, Any]:
+        """Получает статус GPS"""
+        position = self.data.get('basicVehicleStatus', {}).get('position', {})
+
+        has_gps = bool(position.get('latitude') and position.get('longitude'))
+
+        return {
+            'has_gps_signal': has_gps,
+            'gps_status': '✅ GPS активен' if has_gps else '❌ GPS потерян',
+            'coordinates_trusted': position.get('posCanBeTrusted') == 'true',
+            'location_upload_enabled': position.get('carLocatorStatUploadEn') == 'true',
+            'latitude': float(position.get('latitude', 0)) / 1e7 if position.get('latitude') else None,
+            'longitude': float(position.get('longitude', 0)) / 1e7 if position.get('longitude') else None,
+            'altitude': int(position.get('altitude', 0)) if position.get('altitude') else None,
         }
 
     # ==================== ДВЕРИ И БЕЗОПАСНОСТЬ ====================
@@ -274,10 +251,30 @@ class VehicleDataParser:
         }
         return status_map.get(str(status_code), 'Неизвестно')
 
+    def get_seatbelt_status(self) -> Dict[str, Any]:
+        """Получает статус ремней безопасности (КРИТИЧНО!)"""
+        safety = self.data.get('additionalVehicleStatus', {}).get('drivingSafetyStatus', {})
+
+        driver_belted = bool(safety.get('seatBeltStatusDriver', False))
+        passenger_belted = bool(safety.get('seatBeltStatusPassenger', False))
+        driver_rear_belted = bool(safety.get('seatBeltStatusDriverRear', False))
+        passenger_rear_belted = bool(safety.get('seatBeltStatusPassengerRear', False))
+
+        all_belted = driver_belted and passenger_belted and driver_rear_belted and passenger_rear_belted
+
+        return {
+            'driver_belted': '✅ Пристегнут' if driver_belted else '❌ НЕ пристегнут',
+            'passenger_belted': '✅ Пристегнут' if passenger_belted else '❌ НЕ пристегнут',
+            'driver_rear_belted': '✅ Пристегнут' if driver_rear_belted else '❌ НЕ пристегнут',
+            'passenger_rear_belted': '✅ Пристегнут' if passenger_rear_belted else '❌ НЕ пристегнут',
+            'all_belted': all_belted,
+            'safety_alert': '🚨 ОПАСНО: Не пристегнуты!' if not all_belted else '✅ Все в безопасности',
+        }
+
     # ==================== ОКНА ====================
 
     def get_windows_info(self) -> Dict[str, Any]:
-        """Получает информацию об окнах и люке"""
+        """Получает информацию об окнах"""
         climate = self.data.get('additionalVehicleStatus', {}).get('climateStatus', {})
 
         return {
@@ -285,9 +282,6 @@ class VehicleDataParser:
             'passenger_window': self._parse_window_status(climate.get('winStatusPassenger', '2')),
             'driver_rear_window': self._parse_window_status(climate.get('winStatusDriverRear', '2')),
             'passenger_rear_window': self._parse_window_status(climate.get('winStatusPassengerRear', '2')),
-            'sunroof_position': int(climate.get('sunroofPos', 0)),
-            'sunroof_open': bool(int(climate.get('sunroofOpenStatus', 0))),
-            'sunroof_rear_open': bool(int(climate.get('sunCurtainRearOpenStatus', 0))),
             'window_close_reminder': self._parse_window_reminder(climate.get('winCloseReminder', '0')),
             'defrost': bool(climate.get('defrost', 'false') == 'true'),
         }
@@ -312,10 +306,69 @@ class VehicleDataParser:
         }
         return map_reminder.get(str(code), 'Неизвестно')
 
+    # ==================== ПАНОРАМНАЯ КРЫША (ОБНОВЛЕНО) ====================
+
+    def get_panoramic_roof_status(self) -> Dict[str, Any]:
+        """
+        Получает статус панорамной крыши с затемняющей шторкой
+
+        ВАЖНО: Крыша физически герметична (не открывается)
+        Шторка контролирует пропускание света (0-101%)
+        """
+        climate = self.data.get('additionalVehicleStatus', {}).get('climateStatus', {})
+
+        sunroof_open = bool(int(climate.get('sunroofOpenStatus', 0)))
+        sunroof_pos = int(climate.get('sunroofPos', 0))
+
+        rear_curtain_open = bool(int(climate.get('sunCurtainRearOpenStatus', 0)))
+        rear_curtain_pos = int(climate.get('sunCurtainRearPos', 0))
+
+        return {
+            # === ПЕРЕДНЯЯ ПАНОРАМНАЯ КРЫША ===
+            'roof_sealed': True,  # Крыша ВСЕГДА герметична!
+            'front_shade_open': sunroof_open,
+            'front_shade_status': self._parse_sunroof_shade(sunroof_open, sunroof_pos),
+            'front_shade_position': sunroof_pos,  # 0-100% (0 = тёмная, 100+ = прозрачная)
+
+            # === ЗАДНЯЯ ПАНОРАМНАЯ КРЫША ===
+            'rear_shade_open': rear_curtain_open,
+            'rear_shade_status': self._parse_sunroof_shade(rear_curtain_open, rear_curtain_pos),
+            'rear_shade_position': rear_curtain_pos,
+
+            # === ОБЩЕЕ СОСТОЯНИЕ ===
+            'is_transparent': sunroof_open and sunroof_pos > 50,  # Пропускает свет
+            'is_darkened': not sunroof_open or sunroof_pos < 50,  # Затемнено
+
+            'description': self._get_roof_description(sunroof_open, sunroof_pos, rear_curtain_open, rear_curtain_pos),
+        }
+
+    def _parse_sunroof_shade(self, is_open: bool, position: int) -> str:
+        """Парсит статус затемняющей шторки панорамной крыши"""
+        if not is_open:
+            return '🌙 Закрыта / Закрывается'
+
+        if position >= 100:
+            return '☀️ ПОЛНОСТЬЮ ОТКРЫТА (максимум света)'
+        elif position >= 75:
+            return '🌞 Открыта на 75% (много света)'
+        elif position >= 50:
+            return '🌤️ Открыта на 50% (средний свет)'
+        elif position >= 25:
+            return '🌥️ Открыта на 25% (немного света)'
+        else:
+            return '⚫ Открывается (слабый свет)'
+
+    def _get_roof_description(self, front_open: bool, front_pos: int, rear_open: bool, rear_pos: int) -> str:
+        """Возвращает описание состояния панорамной крыши"""
+        front_status = self._parse_sunroof_shade(front_open, front_pos)
+        rear_status = self._parse_sunroof_shade(rear_open, rear_pos)
+
+        return f"Передняя: {front_status} | Задняя: {rear_status}"
+
     # ==================== КЛИМАТ ====================
 
     def get_climate_info(self) -> Dict[str, Any]:
-        """Получает детальную информацию о климате"""
+        """Получает информацию о климате (ОБНОВЛЕНО)"""
         climate = self.data.get('additionalVehicleStatus', {}).get('climateStatus', {})
 
         return {
@@ -323,10 +376,18 @@ class VehicleDataParser:
             'exterior_temp': float(climate.get('exteriorTemp', 0)),
             'steering_wheel_heating': self._parse_heating_status(climate.get('steerWhlHeatingSts', '0')),
             'driver_heating': self._parse_heating_status(climate.get('drvHeatSts', '0')),
-            'passenger_heating': self._parse_heating_status(climate.get('passHeatingSts', '0')),
-            'air_blower_active': bool(climate.get('airBlowerActive', 'false') == 'true'),
-            'pre_climate_active': bool(climate.get('preClimateActive', 'false') == 'true'),
-            'cds_climate_active': bool(climate.get('cdsClimateActive', 'false') == 'true'),
+            'passenger_heating': self._parse_heating_status(climate.get('passHeatingTs', '0')),
+
+            # === ПАНОРАМНАЯ КРЫША (ПРАВИЛЬНО) ===
+            'panoramic_roof_sealed': True,  # Крыша герметична
+            'front_shade_open': bool(int(climate.get('sunroofOpenStatus', 0))),
+            'front_shade_position': int(climate.get('sunroofPos', 0)),
+            'rear_shade_open': bool(int(climate.get('sunCurtainRearOpenStatus', 0))),
+            'rear_shade_position': int(climate.get('sunCurtainRearPos', 0)),
+
+            # === ВЕНТИЛЯЦИЯ ===
+            'air_blower_active': climate.get('airBlowerActive', 'false') == 'true',
+            'defrost': climate.get('defrost', 'false') == 'true',
         }
 
     def _parse_heating_status(self, status_code: str) -> str:
@@ -376,49 +437,122 @@ class VehicleDataParser:
     def _parse_fluid_level(self, level_code: str) -> str:
         """Парсит уровень жидкостей"""
         level_map = {
-            '0': 'Низко 🟡',  # washerFluidLevelStatus: 0 - низко
+            '0': 'Низко 🟡',
             '1': 'Нормально 🟢',
             '2': 'Хорошо 🟢',
-            '3': 'Полный 🟢',  # brakeFluidLevelStatus: 3 - полный, engineCoolantLevelStatus: 3 - полный
+            '3': 'Полный 🟢',
         }
         return level_map.get(str(level_code), 'Неизвестно')
 
     # ==================== СКОРОСТЬ И ДВИЖЕНИЕ ====================
 
     def get_movement_info(self) -> Dict[str, Any]:
-        """Получает информацию о движении"""
+        """Получает информацию о движении (ОБНОВЛЕНО)"""
         basic = self.data.get('basicVehicleStatus', {})
         running = self.data.get('additionalVehicleStatus', {}).get('runningStatus', {})
+        driving = self.data.get('additionalVehicleStatus', {}).get('drivingBehaviourStatus', {})
 
         return {
+            # ===== СКОРОСТЬ =====
             'speed': float(basic.get('speed', 0)),
-            'speed_valid': bool(basic.get('speedValidity', 'false') == 'true'),
+            'speed_valid': self._parse_speed_validity(basic.get('speedValidity', 'false')),
             'avg_speed': int(float(running.get('avgSpeed', 0))),
+            'speed_numeric': float(basic.get('speed', 0)),
+
+            # ===== КОРОБКА ПЕРЕДАЧ =====
+            'gear_auto': self._parse_gear_status(str(int(driving.get('gearAutoStatus', 0)))),
+            'gear_auto_numeric': int(driving.get('gearAutoStatus', 0)),
+            'engine_rpm': float(driving.get('engineSpeed', 0)),
+
+            # ===== ДВИГАТЕЛЬ =====
+            'engine_status': 'engine_running' if basic.get('engineStatus') == 'engine_running' else 'engine_off',
+
+            # ===== НАПРАВЛЕНИЕ =====
+            'direction': int(basic.get('direction', 0)) if basic.get('direction') else 0,
+
+            # ===== ОДОМЕТРЫ =====
             'trip_meter_1': float(running.get('tripMeter1', 0)),
             'trip_meter_2': float(running.get('tripMeter2', 0)),
-            'direction': int(basic.get('direction', 0)) if basic.get('direction') else 0,
+
+            # ===== ОГНИ =====
+            'drl_active': bool(int(running.get('drl', 0))),
+            'hi_beam_active': bool(int(running.get('hiBeam', 0))),
+            'lo_beam_active': bool(int(running.get('loBeam', 0))),
         }
 
-    # ==================== ОГНИ И СИГНАЛЫ ====================
+    def _parse_speed_validity(self, validity: str) -> str:
+        """Парсит достоверность скорости"""
+        return '✅ Достоверна' if validity == 'true' else '⚠️ Недостоверна'
 
-    def get_lights_info(self) -> Dict[str, bool]:
-        """Получает информацию об огнях"""
+    def _parse_gear_status(self, gear_code: str) -> str:
+        """Парсит статус коробки передач (ОБНОВЛЕНО)"""
+        gear_map = {
+            '0': '❌ Выключена',
+            '1': '✅ Автоматическая включена',
+            '2': '🔧 Мануальная включена',
+            '3': '⏸️ Режим удержания / Нейтраль',
+        }
+        return gear_map.get(str(gear_code), 'Неизвестно')
+
+    # ==================== ТОРМОЗА ====================
+
+    def get_brake_status(self) -> Dict[str, Any]:
+        """Получает информацию о тормозах"""
+        running = self.data.get('additionalVehicleStatus', {}).get('runningStatus', {})
+
+        stop_lights = bool(int(running.get('stopLi', 0)))
+
+        return {
+            'is_braking': stop_lights,
+            'brake_status': self._parse_stop_light_status(running.get('stopLi', '0')),
+            'stop_lights_on': stop_lights,
+        }
+
+    def _parse_stop_light_status(self, status: str) -> str:
+        """Парсит статус стоп-сигналов"""
+        status_map = {
+            '0': '✅ Выключены (едет или свободно)',
+            '1': '🔴 ВКЛЮЧЕНЫ - ТОРМОЗИТ',
+        }
+        return status_map.get(str(status), 'Неизвестно')
+
+    # ==================== ОГНИ ====================
+
+    def get_lights_status(self) -> Dict[str, Any]:
+        """Получает полный статус всех огней (ОБНОВЛЕНО)"""
         running = self.data.get('additionalVehicleStatus', {}).get('runningStatus', {})
 
         return {
+            'drl_active': bool(int(running.get('drl', 0))),
             'hi_beam': bool(int(running.get('hiBeam', 0))),
             'lo_beam': bool(int(running.get('loBeam', 0))),
-            'drl': bool(int(running.get('drl', 0))),  # DRL = Daytime Running Lights
             'front_fog': bool(int(running.get('frntFog', 0))),
             'rear_fog': bool(int(running.get('reFog', 0))),
             'stop_lights': bool(int(running.get('stopLi', 0))),
             'reverse_lights': bool(int(running.get('reverseLi', 0))),
-            'flash': bool(int(running.get('flash', 0))),
-            'welcome': bool(int(running.get('welcome', 0))),
-            'goodbye': bool(int(running.get('goodbye', 0))),
-            'home_safe': bool(int(running.get('homeSafe', 0))),
-            'afs': bool(int(running.get('afs', 0))),  # Adaptive Front Lights
+            'corner_lights': bool(int(running.get('cornrgLi', 0))),
+
+            'lights_status': self._get_lights_summary(running),
+            'is_night_mode': not bool(int(running.get('drl', 0))) and not bool(int(running.get('hiBeam', 0))),
         }
+
+    def _get_lights_summary(self, running: Dict) -> str:
+        """Возвращает текстовое описание огней"""
+        drl = bool(int(running.get('drl', 0)))
+        lo_beam = bool(int(running.get('loBeam', 0)))
+        hi_beam = bool(int(running.get('hiBeam', 0)))
+        stop = bool(int(running.get('stopLi', 0)))
+
+        if stop:
+            return '🔴 ТОРМОЗИТ'
+        elif hi_beam:
+            return '🔆 Дальний свет'
+        elif lo_beam:
+            return '💡 Ближний свет'
+        elif drl:
+            return '☀️ Дневные огни'
+        else:
+            return '⚫ Огни выключены (день или припаркован)'
 
     # ==================== ЗАГРЯЗНЕНИЕ ====================
 
@@ -441,8 +575,38 @@ class VehicleDataParser:
             '2': 'Умеренный 🟡',
             '3': 'Плохой 🟠',
             '4': 'Очень плохой 🔴',
+            '5': 'Критичный 🚨',
         }
         return level_map.get(str(level_code), 'Неизвестно')
+
+    def get_air_quality_alert(self) -> Dict[str, Any]:
+        """Проверяет качество воздуха (ВНИМАНИЕ!)"""
+        pollution = self.data.get('additionalVehicleStatus', {}).get('pollutionStatus', {})
+
+        interior_pm25 = int(pollution.get('interiorPM25', 0))
+        interior_level = int(pollution.get('interiorPM25Level', 0))
+        humidity = int(pollution.get('relHumSts', 0))
+
+        alerts = []
+
+        if interior_pm25 > 300:
+            alerts.append(f"🚨 КРИТИЧНОЕ: PM2.5 = {interior_pm25} мкг/м³ (норма < 35)")
+        elif interior_pm25 > 100:
+            alerts.append(f"⚠️ ОЧЕНЬ ПЛОХО: PM2.5 = {interior_pm25} мкг/м³")
+
+        if interior_level == 5:
+            alerts.append("🔴 Уровень загрязнения: ОЧЕНЬ ПЛОХО")
+
+        if humidity > 100:
+            alerts.append(f"⚠️ Ошибка датчика влажности: {humidity}% (невозможно!)")
+
+        return {
+            'alerts': alerts,
+            'interior_pm25': interior_pm25,
+            'interior_level': interior_level,
+            'humidity': humidity,
+            'has_alerts': len(alerts) > 0,
+        }
 
     # ==================== ВРЕМЯ ПАРКОВКИ ====================
 
@@ -496,8 +660,8 @@ class VehicleDataParser:
 
             # ===== DC ЗАРЯДКА (БЫСТРАЯ) =====
             'dc_charge_status': self._parse_dc_charge_status(ev_status.get('dcChargeSts', '0')),
-            'dc_charge_pile_current': float(ev_status.get('dcChargePileIAct', 0)),  # Ток в А
-            'dc_charge_pile_voltage': float(ev_status.get('dcChargePileUAct', 0)),  # Напряжение в В
+            'dc_charge_pile_current': float(ev_status.get('dcChargePileIAct', 0)),
+            'dc_charge_pile_voltage': float(ev_status.get('dcChargePileUAct', 0)),
             'dc_power': self._calculate_dc_power(
                 float(ev_status.get('dcChargePileUAct', 0)),
                 float(ev_status.get('dcChargePileIAct', 0))
@@ -529,14 +693,25 @@ class VehicleDataParser:
         }
         return status_map.get(str(status_code), 'Неизвестно')
 
-    def _parse_dc_charge_status(self, status_code: str) -> str:
-        """Парсит статус DC зарядки"""
-        status_map = {
-            '0': 'Не активна',
-            '1': 'Активна',
-            '2': 'Завершена',
+    def estimate_battery_recovery(self) -> Dict[str, Any]:
+        """
+        Оценивает восстановление батареи через рекуперативное торможение
+        """
+        running = self.data.get('additionalVehicleStatus', {}).get('runningStatus', {})
+        basic = self.data.get('basicVehicleStatus', {})
+        ev_status = self.data.get('additionalVehicleStatus', {}).get('electricVehicleStatus', {})
+
+        is_braking = bool(int(running.get('stopLi', 0)))
+        speed = float(basic.get('speed', 0))
+        charge_level = int(ev_status.get('chargeLevel', 0))
+
+        return {
+            'is_braking': is_braking,
+            'speed': speed,
+            'current_charge': charge_level,
+            'is_recovering': is_braking and speed > 0,
+            'recovery_status': '⚡ ВОССТАНОВЛЕНИЕ ЭНЕРГИИ' if (is_braking and speed > 0) else 'Нет восстановления',
         }
-        return status_map.get(str(status_code), 'Неизвестно')
 
     # ==================== ТРЕЙЛЕР ====================
 
@@ -596,9 +771,11 @@ class VehicleDataParser:
         movement = self.get_movement_info()
         pollution = self.get_pollution_info()
         park = self.get_park_info()
-        lights = self.get_lights_info()
+        lights = self.get_lights_status()
         climate = self.get_climate_info()
         charging = self.get_charging_info()
+        roof = self.get_panoramic_roof_status()
+        belts = self.get_seatbelt_status()
 
         report = f"""
 {'=' * 80}
@@ -614,64 +791,52 @@ VIN:                    {self.get_vin()}
 
 🔋 БАТАРЕЯ И ЗАРЯД
 {'-' * 80}
-Уровень заряда:         {battery['charge_level']}%
+Уровень заряда:         {battery['battery_percentage']}%
 Статус зарядки:         {battery['charge_status']}
 Запас хода:             {battery['distance_to_empty']} км
 Среднее потребление:    {battery['avg_power_consumption']} кВт
-Время до полной зарядки: {battery['time_to_fully_charged']} мин
-State of Charge:        {battery['soc']}%
-State of Health:        {battery['soh']}%
-Напряжение батареи:     {battery['voltage']:.2f}V
+Напряжение 12V:         {battery['aux_battery_voltage']:.2f}V
 Температура батареи:   {battery['hv_temp_level']}
 
-⚡ ИНФОРМАЦИЯ О ЗАРЯДКЕ
+☀️ ПАНОРАМНАЯ КРЫША
 {'-' * 80}
-Статус зарядки:         {charging['charge_status']}
-Вольтаж на зарядке:     {charging['charge_pile_voltage']:.1f}V 🎯
-Мощность входа:         {charging['current_power_input']:.1f}кВт 🎯
-Ток зарядки DC:         {charging['dc_charge_pile_current']:.1f}A
-Статус разъема:         {charging['charge_connector_status']}
+Состояние крыши:        {roof['description']}
+Крыша герметична:       {roof['roof_sealed']}
+Передняя шторка:        {roof['front_shade_status']}
+Позиция передней:       {roof['front_shade_position']}%
+Задняя шторка:          {roof['rear_shade_status']}
+Позиция задней:         {roof['rear_shade_position']}%
 
-🌡️  ТЕМПЕРАТУРА И КЛИМАТ
+🌡️ ТЕМПЕРАТУРА И КЛИМАТ
 {'-' * 80}
 Внутренняя температура: {temp['interior_temp']}°C
 Внешняя температура:    {temp['exterior_temp']}°C
 Отопление руля:         {climate['steering_wheel_heating']}
 Отопление водителя:     {climate['driver_heating']}
 Отопление пассажира:    {climate['passenger_heating']}
-Вентилятор включен:     {'Да ✅' if climate['air_blower_active'] else 'Нет ❌'}
-Предварительный климат:  {'Активен ✅' if climate['pre_climate_active'] else 'Неактивен ❌'}
-Дефрост:                {'Включен ✅' if windows['defrost'] else 'Выключен ❌'}
+Дефрост:                {'Включен ✅' if climate['defrost'] else 'Выключен ❌'}
 
 📍 ПОЛОЖЕНИЕ
 {'-' * 80}
+GPS:                    {position['gps_status']}
 Широта:                 {position['latitude']:.6f}
 Долгота:                {position['longitude']:.6f}
 Высота:                 {position['altitude']} м
-Направление:            {position['direction']}°
-Координаты доверены:    {'Да ✅' if position['can_be_trusted'] else 'Нет ❌'}
 
-🔒 БЕЗОПАСНОСТЬ И ДВЕРИ
+🔒 БЕЗОПАСНОСТЬ И РЕМНИ
 {'-' * 80}
-Центральный замок:      {security['central_lock']}
-Электрический тормоз:   {security['electric_park_brake']}
-Статус SRS:             {'🚨 АКТИВИРОВАНО' if security['srs_crash_status'] else '✅ Ок'}
+{belts['safety_alert']}
+Водитель:               {belts['driver_belted']}
+Пассажир:               {belts['passenger_belted']}
+Задний пассажир:        {belts['driver_rear_belted']}
 
-Дверь водителя:         {'🔓 Открыта' if security['driver_door_open'] else '🔐 Закрыта'} | Замок: {security['driver_lock']}
-Дверь пассажира:        {'🔓 Открыта' if security['passenger_door_open'] else '🔐 Закрыта'} | Замок: {security['passenger_lock']}
-Задняя дверь водителя:  {'🔓 Открыта' if security['driver_rear_door_open'] else '🔐 Закрыта'} | Замок: {security['driver_rear_lock']}
-Задняя дверь пассажира: {'🔓 Открыта' if security['passenger_rear_door_open'] else '🔐 Закрыта'} | Замок: {security['passenger_rear_lock']}
-Багажник:               {'🔓 Открыт' if security['trunk_open'] else '🔐 Закрыт'} | Замок: {security['trunk_lock']}
-Капот:                  {'🔓 Открыт' if security['engine_hood_open'] else '🔐 Закрыт'}
-
-🪟 ОКНА И ЛЮК
+🔓 ДВЕРИ И ОКНА
 {'-' * 80}
+Дверь водителя:         {'🔓 Открыта' if security['driver_door_open'] else '🔐 Закрыта'}
+Дверь пассажира:        {'🔓 Открыта' if security['passenger_door_open'] else '🔐 Закрыта'}
 Окно водителя:          {windows['driver_window']}
 Окно пассажира:         {windows['passenger_window']}
-Заднее окно водителя:   {windows['driver_rear_window']}
-Заднее окно пассажира:  {windows['passenger_rear_window']}
-Люк крыши:              {'🔓 Открыт' if windows['sunroof_open'] else '🔐 Закрыт'} | Позиция: {windows['sunroof_position']}%
-Напоминание о закрытии: {windows['window_close_reminder']}
+Багажник:               {'🔓 Открыт' if security['trunk_open'] else '🔐 Закрыт'}
 
 🛞 ШИНЫ (Давление в кПа / Температура в °C)
 {'-' * 80}
@@ -685,42 +850,30 @@ State of Health:        {battery['soh']}%
 Одометр:                {maintenance['odometer']:.0f} км
 Дней до ТО:             {maintenance['days_to_service']} дней
 Км до ТО:               {maintenance['distance_to_service']} км
-Часов до ТО:            {maintenance['engine_hours_to_service']} часов
-Предупреждение ТО:      {'🚨 ДА' if maintenance['service_warning_status'] else 'Нет'}
-Тормозная жидкость:     {maintenance['brake_fluid_level']}
-Жидкость омывателя:     {maintenance['washer_fluid_level']}
-Охлаждающая жидкость:   {maintenance['engine_coolant_level']}
 
 🚙 ДВИЖЕНИЕ
 {'-' * 80}
 Текущая скорость:       {movement['speed']:.1f} км/ч
-Скорость валидна:       {'Да ✅' if movement['speed_valid'] else 'Нет ❌'}
 Средняя скорость:       {movement['avg_speed']} км/ч
-Одометр 1:              {movement['trip_meter_1']:.1f} км
-Одометр 2:              {movement['trip_meter_2']:.1f} км
-Направление:            {movement['direction']}°
+Коробка передач:        {movement['gear_auto']}
 
 💡 ОГНИ
 {'-' * 80}
-Дальний свет:           {'Включен ✅' if lights['hi_beam'] else 'Выключен ❌'}
-Ближний свет:           {'Включен ✅' if lights['lo_beam'] else 'Выключен ❌'}
-Дневные ходовые огни:   {'Включены ✅' if lights['drl'] else 'Выключены ❌'}
-Передние противотуман:  {'Включены ✅' if lights['front_fog'] else 'Выключены ❌'}
-Задние противотуман:    {'Включены ✅' if lights['rear_fog'] else 'Выключены ❌'}
-Стоп-сигналы:           {'Включены ✅' if lights['stop_lights'] else 'Выключены ❌'}
-Фонари заднего хода:    {'Включены ✅' if lights['reverse_lights'] else 'Выключены ❌'}
-
-🅿️  ПАРКОВКА
-{'-' * 80}
-Припаркован:            {'Да ✅' if park['is_parked'] else 'Нет ❌'}
-Припаркован с:          {park['parked_since'] or 'N/A'}
-Время парковки:         {park['park_duration']}
+Статус:                 {lights['lights_status']}
+Дневные огни:           {'✅' if lights['drl_active'] else '❌'}
+Дальний свет:           {'✅' if lights['hi_beam'] else '❌'}
+Ближний свет:           {'✅' if lights['lo_beam'] else '❌'}
+Стоп-сигналы:           {'🔴 Включены' if lights['stop_lights'] else '✅ Выключены'}
 
 💨 КАЧЕСТВО ВОЗДУХА
 {'-' * 80}
 PM2.5 внутри:           {pollution['interior_pm25']} мкг/м³ ({pollution['interior_pm25_level']})
-PM2.5 снаружи:          {pollution['exterior_pm25_level']}
-Относительная влажность: {pollution['relative_humidity']}%
+Влажность:              {pollution['relative_humidity']}%
+
+🅿️ ПАРКОВКА
+{'-' * 80}
+Припаркован:            {'Да ✅' if park['is_parked'] else 'Нет ❌'}
+Время парковки:         {park['park_duration']}
 
 {'=' * 80}
 """
