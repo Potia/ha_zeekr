@@ -1,7 +1,3 @@
-# custom_components/zeekr/group_definitions.py
-
-"""Определения групп датчиков Zeekr"""
-
 SENSOR_GROUPS = {
     "🔋 Батарея": [
         "battery",
@@ -17,7 +13,7 @@ SENSOR_GROUPS = {
     "🌡️ Температура": [
         "interior_temp",
         "exterior_temp",
-        "temperature_battery",
+        "hv_temp_level",
         "tire_temp_driver_front",
         "tire_temp_passenger_front",
         "tire_temp_driver_rear",
@@ -42,9 +38,12 @@ SENSOR_GROUPS = {
         "brake_status",
         "gear_status",
         "energy_recovery",
+        "trip_meter_1",
+        "trip_meter_2",
     ],
 
     "🔧 Обслуживание": [
+        "odometer",
         "days_to_service",
         "distance_to_service",
         "engine_hours_to_service",
@@ -59,9 +58,10 @@ SENSOR_GROUPS = {
         "dc_charge_current_detailed",
         "dc_charge_status_detailed",
         "dcdc_status",
+        "time_to_full_charge",
     ],
 
-    "⚡ Разрядка (V2L/V2H)": [
+    "⚡ Разрядка": [
         "discharge_power",
         "discharge_voltage",
         "discharge_current",
@@ -80,7 +80,7 @@ SENSOR_GROUPS = {
         "seatbelt_status",
     ],
 
-    "📍 GPS": [
+    "📍 Местоположение": [
         "latitude",
         "longitude",
         "altitude",
@@ -93,12 +93,20 @@ SENSOR_GROUPS = {
 
     "💨 Воздух": [
         "pm25_interior",
-        "pm25_exterior_level",
+        "exterior_pm25_level",
         "relative_humidity",
     ],
 
     "🅿️ Парковка": [
         "park_duration",
+    ],
+
+    "🎯 Климат": [
+        "interior_temp",
+        "exterior_temp",
+        "steering_wheel_heating",
+        "driver_heating",
+        "passenger_heating",
     ],
 
     "🚗 Статус": [
@@ -125,8 +133,10 @@ def get_group_entities_for_vin(vin: str, group_name: str) -> list:
         return []
 
     entities = []
+    vin_lower = vin.lower()
+
     for sensor_type in SENSOR_GROUPS[group_name]:
-        entity_id = f"sensor.zeekr_{vin.lower()}_{sensor_type}"
+        entity_id = f"sensor.zeekr_{vin_lower}_{sensor_type}"
         entities.append(entity_id)
 
     return entities
