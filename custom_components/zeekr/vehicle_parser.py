@@ -157,11 +157,10 @@ class VehicleDataParser:
     def _parse_hv_temp_level(self, level_code: str) -> str:
         """Переводит уровень температуры батареи"""
         temp_map = {
-            '0': 'Неизвестно',
-            '1': 'Теплая 🔥',
-            '2': 'Немного холодная ❄️',
-            '3': 'Холодная 🥶',
-            '4': 'Сильно холодная 🧊',
+            '0': 'Теплая 🔥',
+            '1': 'Немного холодная ❄️',
+            '2': 'Холодная 🥶',
+            '3': 'Сильно холодная 🧊',
         }
         return temp_map.get(str(level_code), 'Неизвестно')
 
@@ -675,11 +674,18 @@ class VehicleDataParser:
     # ==================== ВРЕМЯ ПАРКОВКИ ====================
 
     def get_park_info(self) -> Dict[str, Any]:
-        """Получает информацию о парковке"""
-        # ✅ НОВАЯ ЗАЩИТА ОТ ПУСТЫХ СТРОК
+        """
+        Получает информацию о парковке
+
+        ✅ ЗАЩИТА ОТ ПУСТЫХ СТРОК!
+        """
+
+        # Шаг 1: Получаем значение как строку
         park_time_str = self.data.get('parkTime', {}).get('status', '')
 
+        # Шаг 2: Проверяем, пуста ли строка
         if not park_time_str or park_time_str == '':
+            print("[DEBUG] parkTime пуста - машина не припаркована")
             return {
                 'is_parked': False,
                 'parked_since': None,
@@ -688,8 +694,8 @@ class VehicleDataParser:
             }
         try:
             park_time_ms = int(park_time_str)
-        except (ValueError, TypeError):
-            # Если преобразование не удалось, возвращаем "не припаркован"
+        except (ValueError, TypeError) as e:
+            print(f"[ERROR] Не могу преобразовать parkTime в число: {park_time_str} - {e}")
             return {
                 'is_parked': False,
                 'parked_since': None,
@@ -697,6 +703,7 @@ class VehicleDataParser:
                 'total_seconds': 0,
             }
 
+            # Шаг 4: Если время = 0, не припаркована
         if park_time_ms == 0:
             return {
                 'is_parked': False,
@@ -705,28 +712,41 @@ class VehicleDataParser:
                 'total_seconds': 0,
             }
 
-        park_datetime = datetime.fromtimestamp(park_time_ms / 1000)
-        current_time = datetime.now()
-        park_duration = current_time - park_datetime
+            # Шаг 5: Рассчитываем время парковки
+        try:
+            park_datetime = datetime.fromtimestamp(park_time_ms / 1000)
+            current_time = datetime.now()
+            park_duration = current_time - park_datetime
 
-        total_seconds = int(park_duration.total_seconds())
-        days = total_seconds // 86400
-        hours = (total_seconds % 86400) // 3600
-        minutes = (total_seconds % 3600) // 60
+            total_seconds = int(park_duration.total_seconds())
+            days = total_seconds // 86400
+            hours = (total_seconds % 86400) // 3600
+            minutes = (total_seconds % 3600) // 60
 
-        if days > 0:
-            duration_str = f"{days}д {hours}ч {minutes}м"
-        elif hours > 0:
-            duration_str = f"{hours}ч {minutes}м"
-        else:
-            duration_str = f"{minutes}м"
+            # Форматируем красивый вывод
+            if days > 0:
+                duration_str = f"{days}д {hours}ч {minutes}м"
+            elif hours > 0:
+                duration_str = f"{hours}ч {minutes}м"
+            else:
+                duration_str = f"{minutes}м"
 
-        return {
-            'is_parked': True,
-            'parked_since': park_datetime.strftime('%Y-%m-%d %H:%M:%S'),
-            'park_duration': duration_str,
-            'total_seconds': total_seconds,
-        }
+            print(f"[DEBUG] Припаркована {duration_str}")
+
+            return {
+                'is_parked': True,
+                'parked_since': park_datetime.strftime('%Y-%m-%d %H:%M:%S'),
+                'park_duration': duration_str,
+                'total_seconds': total_seconds,
+            }
+        except Exception as e:
+            print(f"[ERROR] Ошибка при расчете времени парковки: {e}")
+            return {
+                'is_parked': False,
+                'parked_since': None,
+                'park_duration': 'Ошибка данных',
+                'total_seconds': 0,
+            }
 
     # ==================== ЗАРЯДКА ====================
 
