@@ -47,8 +47,7 @@ async def async_setup_entry(
             ZeekrDriverRearWindowSensor(coordinator, vin),
             ZeekrPassengerRearWindowSensor(coordinator, vin),
 
-            # ========== НОВЫЕ ДАТЧИКИ ==========
-            # ☀️ ПАНОРАМНАЯ КРЫША
+            # ========== ПАНОРАМНАЯ КРЫША (ИСПРАВЛЕННАЯ) ====================
             ZeekrFrontShadeOpenSensor(coordinator, vin),
             ZeekrRearShadeOpenSensor(coordinator, vin),
             ZeekrRoofTransparentSensor(coordinator, vin),
@@ -329,20 +328,21 @@ class ZeekrPassengerRearWindowSensor(ZeekrBaseBinarySensor):
         return False
 
 
-# ==================== ПАНОРАМНАЯ КРЫША (НОВОЕ) ====================
+# ==================== ПАНОРАМНАЯ КРЫША (ИСПРАВЛЕННОЕ) ====================
 
 class ZeekrFrontShadeOpenSensor(ZeekrBaseBinarySensor):
     """Передняя затемняющая шторка открыта?"""
 
     _attr_name = "Front Shade Open"
     _attr_icon = "mdi:window-shutter"
+    _attr_device_class = BinarySensorDeviceClass.WINDOW
 
     def _get_sensor_type(self) -> str:
         return "front_shade_open"
 
     @property
     def is_on(self) -> bool:
-        """Return True if front shade is open"""
+        """Return True if front shade is open/transparent"""
         parser = self._get_parser()
         if parser:
             roof = parser.get_panoramic_roof_status()
@@ -355,13 +355,14 @@ class ZeekrRearShadeOpenSensor(ZeekrBaseBinarySensor):
 
     _attr_name = "Rear Shade Open"
     _attr_icon = "mdi:window-shutter"
+    _attr_device_class = BinarySensorDeviceClass.WINDOW
 
     def _get_sensor_type(self) -> str:
         return "rear_shade_open"
 
     @property
     def is_on(self) -> bool:
-        """Return True if rear shade is open"""
+        """Return True if rear shade is open/transparent"""
         parser = self._get_parser()
         if parser:
             roof = parser.get_panoramic_roof_status()
@@ -381,7 +382,7 @@ class ZeekrRoofTransparentSensor(ZeekrBaseBinarySensor):
 
     @property
     def is_on(self) -> bool:
-        """Return True if roof is transparent"""
+        """Return True if roof is transparent (lots of light)"""
         parser = self._get_parser()
         if parser:
             roof = parser.get_panoramic_roof_status()
@@ -389,13 +390,14 @@ class ZeekrRoofTransparentSensor(ZeekrBaseBinarySensor):
         return False
 
 
-# ========== РЕМНИ БЕЗОПАСНОСТИ (НОВОЕ) ==========
+# ========== РЕМНИ БЕЗОПАСНОСТИ ====================
 
 class ZeekrSeatbeltDriverBinarySensor(ZeekrBaseBinarySensor):
     """Водитель пристегнут?"""
 
     _attr_name = "Seatbelt Driver"
     _attr_icon = "mdi:seatbelt"
+    _attr_device_class = BinarySensorDeviceClass.SAFETY
 
     def _get_sensor_type(self) -> str:
         return "seatbelt_driver_binary"
@@ -415,6 +417,7 @@ class ZeekrSeatbeltPassengerBinarySensor(ZeekrBaseBinarySensor):
 
     _attr_name = "Seatbelt Passenger"
     _attr_icon = "mdi:seatbelt"
+    _attr_device_class = BinarySensorDeviceClass.SAFETY
 
     def _get_sensor_type(self) -> str:
         return "seatbelt_passenger_binary"
@@ -429,7 +432,7 @@ class ZeekrSeatbeltPassengerBinarySensor(ZeekrBaseBinarySensor):
         return False
 
 
-# ========== GPS И НАВИГАЦИЯ (НОВОЕ) ==========
+# ========== GPS И НАВИГАЦИЯ ====================
 
 class ZeekrGpsActiveSensor(ZeekrBaseBinarySensor):
     """GPS активен?"""
@@ -450,7 +453,7 @@ class ZeekrGpsActiveSensor(ZeekrBaseBinarySensor):
         return False
 
 
-# ========== ТОРМОЖЕНИЕ И ВОССТАНОВЛЕНИЕ (НОВОЕ) ==========
+# ========== ТОРМОЖЕНИЕ И ВОССТАНОВЛЕНИЕ ====================
 
 class ZeekrBrakingSensor(ZeekrBaseBinarySensor):
     """Машина тормозит? (восстановление энергии)"""

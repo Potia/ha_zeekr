@@ -118,9 +118,7 @@ async def async_setup_entry(
             ZeekrDischargeCurrentSensor(coordinator, vin),
             ZeekrChargerStateSensor(coordinator, vin),
 
-            # ========== НОВЫЕ ДАТЧИКИ (ПАНОРАМНАЯ КРЫША И БЕЗОПАСНОСТЬ) ==========
-
-            # ☀️ ПАНОРАМНАЯ КРЫША
+            # ========== ПАНОРАМНАЯ КРЫША (ИСПРАВЛЕННАЯ) ====================
             ZeekrFrontShadeSensor(coordinator, vin),
             ZeekrRearShadeSensor(coordinator, vin),
             ZeekrRoofStatusSensor(coordinator, vin),
@@ -144,6 +142,9 @@ async def async_setup_entry(
 
             # 🌫️ КАЧЕСТВО ВОЗДУХА
             ZeekrAirQualitySensor(coordinator, vin),
+
+            # 🔒 ОХРАНА
+            ZeekrTheftProtectionSensor(coordinator, vin),
         ])
 
     async_add_entities(entities)
@@ -1336,7 +1337,7 @@ class ZeekrChargerStateSensor(ZeekrBaseSensor):
         return None
 
 
-# ==================== ПАНОРАМНАЯ КРЫША (НОВОЕ) ====================
+# ==================== ПАНОРАМНАЯ КРЫША (ИСПРАВЛЕННАЯ) ====================
 
 class ZeekrFrontShadeSensor(ZeekrBaseSensor):
     """Передняя затемняющая шторка панорамной крыши"""
@@ -1368,7 +1369,8 @@ class ZeekrFrontShadeSensor(ZeekrBaseSensor):
                 'status': roof['front_shade_status'],
                 'is_open': roof['front_shade_open'],
                 'is_transparent': roof['is_transparent'],
-                'description': 'Затемняющая шторка передней панорамной крыши'
+                'description': 'Затемняющая шторка передней панорамной крыши',
+                'note': 'Позиция 0% = затемнена, 101% = прозрачна (видно небо)',
             }
         return {}
 
@@ -1402,13 +1404,14 @@ class ZeekrRearShadeSensor(ZeekrBaseSensor):
             return {
                 'status': roof['rear_shade_status'],
                 'is_open': roof['rear_shade_open'],
-                'description': 'Затемняющая шторка задней панорамной крыши'
+                'description': 'Затемняющая шторка задней панорамной крыши',
+                'note': 'Позиция 0% = затемнена, 101% = прозрачна (видно небо)',
             }
         return {}
 
 
 class ZeekrRoofStatusSensor(ZeekrBaseSensor):
-    """Статус панорамной крыши с обеими шторками"""
+    """Статус панорамной крыши (герметична, шторки)"""
 
     _attr_name = "Panoramic Roof Status"
     _attr_icon = "mdi:car-roof"
@@ -1432,16 +1435,19 @@ class ZeekrRoofStatusSensor(ZeekrBaseSensor):
         if parser:
             roof = parser.get_panoramic_roof_status()
             return {
-                'roof_sealed': '✅ Герметична (не пропускает воду)',
+                'roof_sealed': '✅ Герметична (не пропускает воду, не протекает)',
+                'roof_description': 'Панорамная крыша физически герметична и не может быть открыта',
                 'front_shade': roof['front_shade_status'],
+                'front_position': f"{roof['front_shade_position']}%",
                 'rear_shade': roof['rear_shade_status'],
-                'is_transparent': roof['is_transparent'],
+                'rear_position': f"{roof['rear_shade_position']}%",
+                'is_transparent': '☀️ МНОГО света' if roof['is_transparent'] else '🌙 ЗАТЕМНЕНО',
                 'is_darkened': roof['is_darkened'],
             }
         return {}
 
 
-# ==================== ДВИЖЕНИЕ И СКОРОСТЬ (НОВОЕ) ====================
+# ==================== ДВИЖЕНИЕ И СКОРОСТЬ ====================
 
 class ZeekrSpeedSensor(ZeekrBaseSensor):
     """Текущая скорость автомобиля"""
@@ -1547,7 +1553,7 @@ class ZeekrGearStatusSensor(ZeekrBaseSensor):
         return None
 
 
-# ==================== РЕМНИ БЕЗОПАСНОСТИ (НОВОЕ) ====================
+# ==================== РЕМНИ БЕЗОПАСНОСТИ ====================
 
 class ZeekrSeatbeltDriverSensor(ZeekrBaseSensor):
     """Статус ремня безопасности водителя"""
@@ -1633,7 +1639,7 @@ class ZeekrSeatbeltStatusSensor(ZeekrBaseSensor):
         return {}
 
 
-# ==================== GPS И НАВИГАЦИЯ (НОВОЕ) ====================
+# ==================== GPS И НАВИГАЦИЯ ====================
 
 class ZeekrGpsStatusSensor(ZeekrBaseSensor):
     """Статус GPS сигнала"""
@@ -1669,7 +1675,7 @@ class ZeekrGpsStatusSensor(ZeekrBaseSensor):
         return {}
 
 
-# ==================== ОГНИ (НОВОЕ) ====================
+# ==================== ОГНИ ====================
 
 class ZeekrLightsStatusSensor(ZeekrBaseSensor):
     """Общий статус всех огней"""
@@ -1705,7 +1711,7 @@ class ZeekrLightsStatusSensor(ZeekrBaseSensor):
         return {}
 
 
-# ==================== КАЧЕСТВО ВОЗДУХА (НОВОЕ) ====================
+# ==================== КАЧЕСТВО ВОЗДУХА ====================
 
 class ZeekrAirQualitySensor(ZeekrBaseSensor):
     """Статус качества воздуха в салоне"""
@@ -1740,5 +1746,39 @@ class ZeekrAirQualitySensor(ZeekrBaseSensor):
                 'humidity': air['humidity'],
                 'has_alerts': air['has_alerts'],
                 'all_alerts': ' | '.join(air['alerts']) if air['alerts'] else 'Нет предупреждений',
+            }
+        return {}
+
+
+# ==================== ОХРАНА И БЕЗОПАСНОСТЬ ====================
+
+class ZeekrTheftProtectionSensor(ZeekrBaseSensor):
+    """Статус защиты от кражи"""
+
+    _attr_name = "Theft Protection"
+    _attr_icon = "mdi:security"
+
+    def _get_sensor_type(self) -> str:
+        return "theft_protection"
+
+    @property
+    def native_value(self) -> str:
+        """Вернуть статус защиты"""
+        parser = self._get_parser()
+        if parser:
+            theft = parser.get_theft_and_security_status()
+            return theft['theft_protection']
+        return None
+
+    @property
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        """Дополнительная информация"""
+        parser = self._get_parser()
+        if parser:
+            theft = parser.get_theft_and_security_status()
+            return {
+                'theft_activated': theft['theft_activated'],
+                'engine_locked': theft['engine_locked'],
+                'activation_time': theft['activation_time'],
             }
         return {}
