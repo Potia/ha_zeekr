@@ -15,6 +15,7 @@ from .const import DOMAIN
 from .zeekr_api import ZeekrAPI
 from .coordinator import ZeekrDataCoordinator
 from .zeekr_storage import token_storage
+from .group_definitions import get_group_entities_for_vin, SENSOR_GROUPS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -276,3 +277,34 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except Exception as err:
         _LOGGER.error(f"❌ Error unloading Zeekr: {err}")
         return False
+
+
+async def _setup_entity_groups(hass: HomeAssistant, entry_id: str, vehicles_data: dict) -> None:
+    """Создает группы датчиков"""
+
+    try:
+        for vin in vehicles_data.keys():
+            if not vin:
+                continue
+
+            # Создаем группу для каждой категории
+            for group_name in SENSOR_GROUPS.keys():
+                group_id = f"zeekr_{vin.lower()}_{group_name.lower().replace(' ', '_').replace('🔋', 'battery')}"
+
+                entities = get_group_entities_for_vin(vin, group_name)
+
+                # Создаем группу
+                await hass.services.async_call(
+                    "group",
+                    "create",
+                    {
+                        "object_id": group_id,
+                        "name": f"{group_name} ({vin})",
+                        "entities": entities,
+                    }
+                )
+
+                _LOGGER.info(f"✅ Created group: {group_name} for {vin}")
+
+    except Exception as e:
+        _LOGGER.error(f"❌ Error creating groups: {e}", exc_info=True)
