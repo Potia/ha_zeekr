@@ -97,6 +97,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         _LOGGER.info(f"✅ Platforms configured: {PLATFORMS}")
 
+        # 🆕 СОЗДАЕМ ГРУППЫ ДАТЧИКОВ
+        await _setup_entity_groups(hass, entry.entry_id, coordinator.data)
+
         # ========== РЕГИСТРИРУЕМ SERVICES ==========
 
         async def handle_save_response(call: ServiceCall) -> None:
@@ -254,6 +257,61 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return False
 
 
+async def _setup_entity_groups(hass: HomeAssistant, entry_id: str, vehicles_data: dict) -> None:
+    """
+    Создает группы датчиков для удобной навигации
+
+    Args:
+        hass: Home Assistant instance
+        entry_id: ID записи конфигурации
+        vehicles_data: Данные автомобилей {VIN: статус}
+    """
+    try:
+        _LOGGER.info("📊 Setting up entity groups...")
+
+        # Для каждого автомобиля создаем группы
+        for vin in vehicles_data.keys():
+            if not vin:
+                continue
+
+            _LOGGER.info(f"🚗 Creating groups for VIN: {vin}")
+
+            # Создаем группу для каждой категории
+            for group_name in SENSOR_GROUPS.keys():
+                # Формируем ID группы
+                # Пример: zeekr_lfdyf1e13jk123456_battery
+                group_id = f"zeekr_{vin.lower().replace(' ', '_')}_group_{len(group_name)}"
+
+                # Получаем список entity_id для этой группы
+                entities = get_group_entities_for_vin(vin, group_name)
+
+                if not entities:
+                    _LOGGER.warning(f"⚠️ No entities found for group: {group_name}")
+                    continue
+
+                try:
+                    # Создаем группу через service call
+                    await hass.services.async_call(
+                        "group",
+                        "create",
+                        {
+                            "object_id": group_id,
+                            "name": f"{group_name} ({vin})",
+                            "entities": entities,
+                        }
+                    )
+
+                    _LOGGER.info(f"✅ Created group: {group_name} for {vin} ({len(entities)} entities)")
+
+                except Exception as e:
+                    _LOGGER.error(f"❌ Error creating group {group_name}: {e}")
+
+        _LOGGER.info("✅ Entity groups setup COMPLETE!")
+
+    except Exception as e:
+        _LOGGER.error(f"❌ Error in _setup_entity_groups: {e}", exc_info=True)
+
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload Zeekr integration"""
 
@@ -277,34 +335,3 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except Exception as err:
         _LOGGER.error(f"❌ Error unloading Zeekr: {err}")
         return False
-
-
-async def _setup_entity_groups(hass: HomeAssistant, entry_id: str, vehicles_data: dict) -> None:
-    """Создает группы датчиков"""
-
-    try:
-        for vin in vehicles_data.keys():
-            if not vin:
-                continue
-
-            # Создаем группу для каждой категории
-            for group_name in SENSOR_GROUPS.keys():
-                group_id = f"zeekr_{vin.lower()}_{group_name.lower().replace(' ', '_').replace('🔋', 'battery')}"
-
-                entities = get_group_entities_for_vin(vin, group_name)
-
-                # Создаем группу
-                await hass.services.async_call(
-                    "group",
-                    "create",
-                    {
-                        "object_id": group_id,
-                        "name": f"{group_name} ({vin})",
-                        "entities": entities,
-                    }
-                )
-
-                _LOGGER.info(f"✅ Created group: {group_name} for {vin}")
-
-    except Exception as e:
-        _LOGGER.error(f"❌ Error creating groups: {e}", exc_info=True)
