@@ -818,26 +818,41 @@ class VehicleDataParser:
 
     def get_ahbc_status(self) -> str:
         """
-        Получает статус AHBC из runningStatus
+        Получает статус AHBC с отладкой.
         JSON путь: additionalVehicleStatus -> runningStatus -> ahbc
-        0 - Включена
-        1 - Выключена
         """
-        # 1. Заходим в additionalVehicleStatus
-        additional = self.data.get('additionalVehicleStatus', {})
-        # 2. Заходим в runningStatus
-        running = additional.get('runningStatus', {})
-        # 3. Берем значение ahbc
+        # 1. Пробуем получить additionalVehicleStatus
+        additional = self.data.get('additionalVehicleStatus')
+
+        # Если вдруг данные обернуты еще раз в 'data' (бывает при сохранении файлов)
+        if not additional:
+            additional = self.data.get('data', {}).get('additionalVehicleStatus')
+
+        if not additional:
+            return "Ошибка: нет additionalVehicleStatus"
+
+        # 2. Пробуем получить runningStatus
+        running = additional.get('runningStatus')
+        if not running:
+            return "Ошибка: нет runningStatus"
+
+        # 3. Ищем значение ahbc
         ahbc_val = running.get('ahbc')
 
-        # Логика пользователя: 0 = Включена, 1 = Выключена
-        if str(ahbc_val) == '0':
-            return "Включена"
-        elif str(ahbc_val) == '1':
-            return "Выключена"
+        # Если ключа нет совсем
+        if ahbc_val is None:
+            return "Ошибка: ключ ahbc не найден"
 
-        # Для отладки, если придет null или другое значение
-        return "Неизвестно"
+        # 4. Преобразуем в строку и проверяем
+        val_str = str(ahbc_val).strip()
+
+        if val_str == '0':
+            return "Включена"  # Значение 0
+        elif val_str == '1':
+            return "Выключена"  # Значение 1
+
+        # Если пришло что-то странное (не 0 и не 1), покажем это
+        return f"Неизвестно (значение: {val_str})"
 
     # ==================== ПОЛНЫЙ ОТЧЕТ ====================
 
