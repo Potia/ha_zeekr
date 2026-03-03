@@ -818,26 +818,25 @@ class VehicleDataParser:
 
     def get_ahbc_status(self) -> str:
         """
-        Получает статус AHBC (Защита от кражи / High Beam Control?)
-        0 - Да (Включено)
-        1 - Нет (Выключено)
+        Получает статус AHBC из runningStatus
+        JSON путь: additionalVehicleStatus -> runningStatus -> ahbc
+        0 - Включена
+        1 - Выключена
         """
-        # Пытаемся найти ключ 'ahbc' в basicVehicleStatus
-        # Если его там нет, вернем -1
-        basic = self.data.get('basicVehicleStatus', {})
-        ahbc_val = basic.get('ahbc')
+        # 1. Заходим в additionalVehicleStatus
+        additional = self.data.get('additionalVehicleStatus', {})
+        # 2. Заходим в runningStatus
+        running = additional.get('runningStatus', {})
+        # 3. Берем значение ahbc
+        ahbc_val = running.get('ahbc')
 
-        # Если значение не найдено, пробуем искать в корне (на всякий случай)
-        if ahbc_val is None:
-            ahbc_val = self.data.get('ahbc')
-
-        # Логика преобразования
-        # Важно привести к строке или числу для сравнения
+        # Логика пользователя: 0 = Включена, 1 = Выключена
         if str(ahbc_val) == '0':
-            return "Включена"  # ✅ 0 - Да
+            return "Включена"
         elif str(ahbc_val) == '1':
-            return "Выключена"  # ❌ 1 - Нет
+            return "Выключена"
 
+        # Для отладки, если придет null или другое значение
         return "Неизвестно"
 
     # ==================== ПОЛНЫЙ ОТЧЕТ ====================
