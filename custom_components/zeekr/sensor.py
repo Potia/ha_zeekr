@@ -540,61 +540,7 @@ class ZeekrInteriorPM25Sensor(ZeekrBaseSensor):
 
 
 # ==================== РАСШИРЕННЫЕ ДАТЧИКИ ====================
-# 🔋 БАТАРЕЯ (РАСШИРЕНО)
-
-class ZeekrStateOfChargeSensor(ZeekrBaseSensor):
-    """Внутренний параметр батареи SOC"""
-
-    _attr_name = "Батарея SOC"
-    _attr_icon = "mdi:battery-heart"
-    _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def _get_sensor_type(self) -> str:
-        return "state_of_charge"
-
-    @property
-    def native_value(self) -> float:
-        """Вернуть SOC"""
-        parser = self._get_parser()
-        if parser:
-            battery = parser.get_battery_info()
-            return battery['soc']
-        return None
-
-    @property
-    def extra_state_attributes(self) -> Dict[str, Any]:
-        """Дополнительная информация"""
-        return {
-            "Примечание": "Внутренний параметр батареи (не процент)"
-        }
-
-
-class ZeekrStateOfHealthSensor(ZeekrBaseSensor):
-    """Внутренний параметр здоровья батареи SOH"""
-
-    _attr_name = "Батарея SOH"
-    _attr_icon = "mdi:battery-check"
-    _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def _get_sensor_type(self) -> str:
-        return "state_of_health"
-
-    @property
-    def native_value(self) -> float:
-        """Вернуть SOH"""
-        parser = self._get_parser()
-        if parser:
-            battery = parser.get_battery_info()
-            return battery['soh']
-        return None
-
-    @property
-    def extra_state_attributes(self) -> Dict[str, Any]:
-        """Дополнительная информация"""
-        return {
-            "Примечание": "Внутренний параметр батареи (не процент здоровья)"
-        }
-
+# 🔋 БАТАРЕЯ
 
 class ZeekrHVTempLevelSensor(ZeekrBaseSensor):
     """Уровень температуры высоковольтной батареи"""
@@ -878,28 +824,6 @@ class ZeekrExteriorPM25LevelSensor(ZeekrBaseSensor):
             pollution = parser.get_pollution_info()
             return pollution['interior_pm25_level']
         return None
-
-
-class ZeekrRelativeHumiditySensor(ZeekrBaseSensor):
-    """Относительная влажность воздуха"""
-
-    _attr_name = "Влажность воздуха"
-    _attr_native_unit_of_measurement = PERCENTAGE
-    _attr_icon = "mdi:water-percent"
-    _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def _get_sensor_type(self) -> str:
-        return "relative_humidity"
-
-    @property
-    def native_value(self) -> int:
-        """Вернуть влажность"""
-        parser = self._get_parser()
-        if parser:
-            pollution = parser.get_pollution_info()
-            return pollution['relative_humidity']
-        return None
-
 
 # ==================== 🅿️ ПАРКОВКА ====================
 
@@ -1279,143 +1203,7 @@ class ZeekrChargerStateSensor(ZeekrBaseSensor):
             return charging['charger_state']
         return None
 
-
-# ==================== ПАНОРАМНАЯ КРЫША (ИСПРАВЛЕННАЯ) ====================
-
-class ZeekrFrontShadeSensor(ZeekrBaseSensor):
-    """Передняя затемняющая шторка панорамной крыши"""
-
-    _attr_name = "Передняя шторка"
-    _attr_native_unit_of_measurement = "%"
-    _attr_icon = "mdi:window-shutter"
-    _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def _get_sensor_type(self) -> str:
-        return "front_shade_position"
-
-    @property
-    def native_value(self) -> int:
-        """Вернуть позицию передней шторки (0-101%)"""
-        parser = self._get_parser()
-        if parser:
-            roof = parser.get_panoramic_roof_status()
-            return roof['front_shade_position']
-        return None
-
-    @property
-    def extra_state_attributes(self) -> Dict[str, Any]:
-        """Дополнительная информация"""
-        parser = self._get_parser()
-        if parser:
-            roof = parser.get_panoramic_roof_status()
-            return {
-                'Статус': roof['front_shade_status'],
-                'Открыта': roof['front_shade_open'],
-                'Прозрачна': roof['is_transparent'],
-            }
-        return {}
-
-
-class ZeekrRearShadeSensor(ZeekrBaseSensor):
-    """Задняя затемняющая шторка панорамной крыши"""
-
-    _attr_name = "Задняя шторка"
-    _attr_native_unit_of_measurement = "%"
-    _attr_icon = "mdi:window-shutter"
-    _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def _get_sensor_type(self) -> str:
-        return "rear_shade_position"
-
-    @property
-    def native_value(self) -> int:
-        """Вернуть позицию задней шторки"""
-        parser = self._get_parser()
-        if parser:
-            roof = parser.get_panoramic_roof_status()
-            return roof['rear_shade_position']
-        return None
-
-    @property
-    def extra_state_attributes(self) -> Dict[str, Any]:
-        """Дополнительная информация"""
-        parser = self._get_parser()
-        if parser:
-            roof = parser.get_panoramic_roof_status()
-            return {
-                'Статус': roof['rear_shade_status'],
-                'Открыта': roof['rear_shade_open'],
-            }
-        return {}
-
-
-class ZeekrRoofStatusSensor(ZeekrBaseSensor):
-    """Статус панорамной крыши - одно слово с процентом"""
-
-    _attr_name = "Панорамная крыша"
-    _attr_icon = "mdi:car-roof"
-
-    def _get_sensor_type(self) -> str:
-        return "roof_status"
-
-    @property
-    def native_value(self) -> str:
-        """Вернуть простой статус крыши"""
-        parser = self._get_parser()
-        if parser:
-            roof = parser.get_panoramic_roof_status()
-            # Берем среднее значение между передней и задней шторкой
-            avg_pos = (roof['front_shade_position'] + roof['rear_shade_position']) // 2
-
-            if avg_pos >= 100:
-                return f"Прозрачна - {avg_pos}%"
-            elif avg_pos >= 75:
-                return f"Прозрачна - {avg_pos}%"
-            elif avg_pos >= 50:
-                return f"Полупрозрачна - {avg_pos}%"
-            elif avg_pos > 0:
-                return f"Затемнена - {avg_pos}%"
-            else:
-                return f"Затемнена - 0%"
-        return None
-
-    @property
-    def extra_state_attributes(self) -> Dict[str, Any]:
-        """Дополнительная информация"""
-        parser = self._get_parser()
-        if parser:
-            roof = parser.get_panoramic_roof_status()
-            return {
-                'Герметична': '✅ Герметична (не течет)',
-                'Передняя_позиция': f"{roof['front_shade_position']}%",
-                'Задняя_позиция': f"{roof['rear_shade_position']}%",
-                'Передняя_статус': roof['front_shade_status'],
-                'Задняя_статус': roof['rear_shade_status'],
-            }
-        return {}
-
-
 # ==================== ДВИЖЕНИЕ И СКОРОСТЬ ====================
-
-class ZeekrSpeedSensor(ZeekrBaseSensor):
-    """Текущая скорость автомобиля"""
-
-    _attr_name = "Скорость"
-    _attr_native_unit_of_measurement = UnitOfSpeed.KILOMETERS_PER_HOUR
-    _attr_icon = "mdi:speedometer"
-    _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def _get_sensor_type(self) -> str:
-        return "speed"
-
-    @property
-    def native_value(self) -> float:
-        """Вернуть текущую скорость"""
-        parser = self._get_parser()
-        if parser:
-            movement = parser.get_movement_info()
-            return movement['speed_numeric']
-        return None
 
 
 class ZeekrBrakeStatusSensor(ZeekrBaseSensor):
@@ -1700,8 +1488,6 @@ async def async_setup_entry(
 
             # ==================== РАСШИРЕННЫЕ ДАТЧИКИ ====================
             # 🔋 Батарея (расширено)
-            ZeekrStateOfChargeSensor(coordinator, vin),
-            ZeekrStateOfHealthSensor(coordinator, vin),
             ZeekrHVTempLevelSensor(coordinator, vin),
             ZeekrTimeToFullChargeSensor(coordinator, vin),
 
@@ -1723,7 +1509,6 @@ async def async_setup_entry(
 
             # 💨 Воздух
             ZeekrExteriorPM25LevelSensor(coordinator, vin),
-            ZeekrRelativeHumiditySensor(coordinator, vin),
 
             # 🅿️ Парковка
             ZeekrParkDurationSensor(coordinator, vin),
@@ -1755,12 +1540,8 @@ async def async_setup_entry(
             ZeekrChargerStateSensor(coordinator, vin),
 
             # ========== ПАНОРАМНАЯ КРЫША (ИСПРАВЛЕННАЯ) ====================
-            ZeekrFrontShadeSensor(coordinator, vin),
-            ZeekrRearShadeSensor(coordinator, vin),
-            ZeekrRoofStatusSensor(coordinator, vin),
 
             # 🚗 ДВИЖЕНИЕ
-            ZeekrSpeedSensor(coordinator, vin),
             ZeekrBrakeStatusSensor(coordinator, vin),
             ZeekrEnergyRecoverySensor(coordinator, vin),
             ZeekrGearStatusSensor(coordinator, vin),
