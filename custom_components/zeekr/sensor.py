@@ -5,6 +5,8 @@ import logging
 from typing import Any, Dict
 from datetime import datetime
 
+from homeassistant.components.device_tracker.const import SOURCE_TYPE_GPS
+
 from homeassistant.components.sensor import (
     SensorEntity,
     SensorDeviceClass,
@@ -17,7 +19,6 @@ from homeassistant.const import (
     UnitOfSpeed,
     UnitOfPressure,
     EntityCategory,
-    SourceType,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -938,9 +939,9 @@ class ZeekrLongitudeSensor(ZeekrBaseSensor):
 
 # ==================== 📍 ТРЕКЕР МЕСТОПОЛОЖЕНИЯ ====================
 
-class ZeekrLocationTracker(CoordinatorEntity):  # ✅ ИСПРАВЛЕНО: Убрали DeviceTrackerEntity
+class ZeekrLocationTracker(CoordinatorEntity):  # ✅ Наследуемся только от CoordinatorEntity
     """Трекер местоположения автомобиля (GPS).
-    Home Assistant автоматически определит этот класс как трекер, так как у него есть свойства latitude и longitude."""
+    Home Assistant автоматически определит этот класс как трекер благодаря свойствам latitude и longitude."""
 
     def __init__(self, coordinator: ZeekrDataCoordinator, vin: str):
         super().__init__(coordinator)
@@ -977,9 +978,9 @@ class ZeekrLocationTracker(CoordinatorEntity):  # ✅ ИСПРАВЛЕНО: Уб
         return None
 
     @property
-    def source_type(self):  # ✅ Важно: возвращаем тип источника
+    def source_type(self):  # ✅ Важно: возвращаем константу SOURCE_TYPE_GPS
         """Указываем, что источник GPS"""
-        return SourceType.GPS
+        return SOURCE_TYPE_GPS
 
     @property
     def extra_state_attributes(self):
