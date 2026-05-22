@@ -5,6 +5,10 @@ import logging
 from typing import Any, Dict
 from datetime import datetime
 
+from homeassistant.components.device_tracker import (
+    DeviceTrackerEntity,
+    SourceType,
+)
 from homeassistant.components.sensor import (
     SensorEntity,
     SensorDeviceClass,
@@ -942,6 +946,65 @@ class ZeekrLongitudeSensor(ZeekrBaseSensor):
         return None
 
 
+# ==================== 📍 ТРЕКЕР МЕСТОПОЛОЖЕНИЯ ====================
+
+class ZeekrLocationTracker(CoordinatorEntity, DeviceTrackerEntity):
+    """Трекер местоположения автомобиля (GPS)"""
+
+    def __init__(self, coordinator: ZeekrDataCoordinator, vin: str):
+        super().__init__(coordinator)
+        self.vin = vin
+
+        # Уникальный ID для трекера
+        self._attr_unique_id = f"{DOMAIN}_{vin}_location"
+
+        # Имя устройства (опционально, можно убрать, чтобы имя бралось из device_info)
+        self._attr_name = "Местоположение"
+
+    @property
+    def latitude(self) -> float:
+        """Возвращает широту в градусах"""
+        parser = self._get_parser()
+        if parser:
+            position = parser.get_position_info()
+            raw_lat = float(position.get('latitude', 0))
+
+            # Формула перевода сырых данных Zeekr (секунды * 1000) в градусы
+            return raw_lat / 3600000.0 if raw_lat != 0 else None
+        return None
+
+    @property
+    def longitude(self) -> float:
+        """Возвращает долготу в градусах"""
+        parser = self._get_parser()
+        if parser:
+            position = parser.get_position_info()
+            raw_lon = float(position.get('longitude', 0))
+
+            # Формула перевода сырых данных Zeekr (секунды * 1000) в градусы
+            return raw_lon / 3600000.0 if raw_lon != 0 else None
+        return None
+
+    @property
+    def source_type(self) -> str:
+        """Указываем, что источник GPS"""
+        return SourceType.GPS
+
+    @property
+    def extra_state_attributes(self):
+        """Дополнительные атрибуты (например, высота или статус сигнала)"""
+        parser = self._get_parser()
+        if parser:
+            position = parser.get_position_info()
+            attrs = {}
+
+            # Можно добавить высоту из сенсора ZeekrAltitudeSensor
+            if 'altitude' in position:
+                attrs['Высота (м)'] = int(position['altitude'])
+
+            return attrs
+        return {}
+
 class ZeekrAltitudeSensor(ZeekrBaseSensor):
     """Высота над уровнем моря"""
 
@@ -1413,9 +1476,10 @@ async def async_setup_entry(
             ZeekrDriverHeatingStatusSensor(coordinator, vin),
             ZeekrPassengerHeatingStatusSensor(coordinator, vin),
 
-            # 📍 Координаты
-            ZeekrLatitudeSensor(coordinator, vin),
-            ZeekrLongitudeSensor(coordinator, vin),
+
+            # 📍 Координаты (Теперь один трекер вместо двух сенсоров)
+            ZeekrLocationTracker(coordinator, vin),
+            # Оставляем высоту как отдельный сенсор, если нужно
             ZeekrAltitudeSensor(coordinator, vin),
 
             # 🔐 Информация
