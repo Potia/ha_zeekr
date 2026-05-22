@@ -941,45 +941,64 @@ class ZeekrLocationTracker(CoordinatorEntity):
     """Сущность местоположения (GPS).
     HA автоматически отобразит её на карте благодаря свойствам latitude/longitude."""
 
-    def __init__(self, coordinator: ZeekrDataCoordinator, vin: str):
+    def __init__(self, coordinator, vin: str):
         super().__init__(coordinator)
         self.vin = vin
+
         # Уникальный ID для сущности
         self._attr_unique_id = f"{DOMAIN}_{vin}_location"
         self._attr_name = "Местоположение"
 
     @property
     def latitude(self) -> float | None:
-        parser = self._get_parser()
-        if parser:
-            pos = parser.get_position_info()
-            raw_lat = float(pos.get('latitude', 0))
-            return raw_lat / 3600000.0 if raw_lat != 0 else None
+        """Возвращает широту"""
+        # Берем данные напрямую из координатора, минуя _get_parser()
+        raw_lat = self.coordinator.data.get('latitude', 0)
+
+        if raw_lat is not None and str(raw_lat).strip() != '':
+            try:
+                val = float(raw_lat)
+                # Формула перевода сырых данных Zeekr (секунды * 1000) в градусы
+                return val / 3600000.0
+            except ValueError:
+                pass
         return None
 
     @property
     def longitude(self) -> float | None:
-        parser = self._get_parser()
-        if parser:
-            pos = parser.get_position_info()
-            raw_lon = float(pos.get('longitude', 0))
-            return raw_lon / 3600000.0 if raw_lon != 0 else None
+        """Возвращает долготу"""
+        raw_lon = self.coordinator.data.get('longitude', 0)
+
+        if raw_lon is not None and str(raw_lon).strip() != '':
+            try:
+                val = float(raw_lon)
+                # Формула перевода сырых данных Zeekr (секунды * 1000) в градусы
+                return val / 3600000.0
+            except ValueError:
+                pass
         return None
 
     @property
     def source_type(self) -> str:
-        """Явно указываем тип источника данных для карты"""
+        """Указываем, что источник GPS"""
         return 'gps'
 
     @property
     def extra_state_attributes(self):
+        """Дополнительные атрибуты (например, высота или статус сигнала)"""
         attrs = {}
-        parser = self._get_parser()
-        if parser:
-            pos = parser.get_position_info()
-            if 'altitude' in pos and float(pos['altitude']) > 0:
-                attrs["Высота (м)"] = int(float(pos['altitude']))
-        return attrs or None
+
+        # Берем данные напрямую из координатора
+        data = self.coordinator.data
+
+        # Проверяем наличие высоты в данных
+        if 'altitude' in data and float(data['altitude']) > 0:
+            try:
+                attrs["Высота (м)"] = int(float(data['altitude']))
+            except ValueError:
+                pass
+
+        return attrs if attrs else None
 
 class ZeekrAltitudeSensor(ZeekrBaseSensor):
     """Высота над уровнем моря"""
