@@ -5,10 +5,6 @@ import logging
 from typing import Any, Dict
 from datetime import datetime
 
-from homeassistant.components.device_tracker import (
-    DeviceTrackerEntity,
-    SourceType,
-)
 from homeassistant.components.sensor import (
     SensorEntity,
     SensorDeviceClass,
@@ -21,6 +17,7 @@ from homeassistant.const import (
     UnitOfSpeed,
     UnitOfPressure,
     EntityCategory,
+    SourceType,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -40,15 +37,11 @@ class ZeekrBaseSensor(CoordinatorEntity, SensorEntity):
     """Base class for Zeekr sensors"""
 
     def __init__(self, coordinator: ZeekrDataCoordinator, vin: str):
-        """Initialize sensor"""
         super().__init__(coordinator)
         self.vin = vin
         self._attr_has_entity_name = True
-
-        # Уникальный ID для каждого датчика
         self._attr_unique_id = f"{DOMAIN}_{vin}_{self._get_sensor_type()}"
 
-        # Информация об устройстве
         self._attr_device_info = {
             "identifiers": {(DOMAIN, vin)},
             "name": f"Zeekr {vin}",
@@ -57,18 +50,15 @@ class ZeekrBaseSensor(CoordinatorEntity, SensorEntity):
         }
 
     def _get_sensor_type(self) -> str:
-        """Override in subclasses"""
         return "sensor"
 
     def _get_parser(self) -> VehicleDataParser:
-        """Get parser for current vehicle data"""
         if self.vin not in self.coordinator.data:
             return None
         return VehicleDataParser(self.coordinator.data[self.vin])
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        """Handle updated data from coordinator"""
         self.async_write_ha_state()
 
 
@@ -948,8 +938,9 @@ class ZeekrLongitudeSensor(ZeekrBaseSensor):
 
 # ==================== 📍 ТРЕКЕР МЕСТОПОЛОЖЕНИЯ ====================
 
-class ZeekrLocationTracker(CoordinatorEntity, DeviceTrackerEntity):
-    """Трекер местоположения автомобиля (GPS)"""
+class ZeekrLocationTracker(CoordinatorEntity):  # ✅ ИСПРАВЛЕНО: Убрали DeviceTrackerEntity
+    """Трекер местоположения автомобиля (GPS).
+    Home Assistant автоматически определит этот класс как трекер, так как у него есть свойства latitude и longitude."""
 
     def __init__(self, coordinator: ZeekrDataCoordinator, vin: str):
         super().__init__(coordinator)
@@ -958,7 +949,7 @@ class ZeekrLocationTracker(CoordinatorEntity, DeviceTrackerEntity):
         # Уникальный ID для трекера
         self._attr_unique_id = f"{DOMAIN}_{vin}_location"
 
-        # Имя устройства (опционально, можно убрать, чтобы имя бралось из device_info)
+        # Имя устройства (опционально)
         self._attr_name = "Местоположение"
 
     @property
@@ -986,7 +977,7 @@ class ZeekrLocationTracker(CoordinatorEntity, DeviceTrackerEntity):
         return None
 
     @property
-    def source_type(self) -> str:
+    def source_type(self):  # ✅ Важно: возвращаем тип источника
         """Указываем, что источник GPS"""
         return SourceType.GPS
 
