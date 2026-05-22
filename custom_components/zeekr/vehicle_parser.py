@@ -28,16 +28,38 @@ class VehicleDataParser:
             return round(power_kw, 1)
         return 0.0
 
-    def _parse_dc_charge_status(self, status_code: str) -> str:
-        """Парсит статус DC зарядки"""
-        status_map = {
-            '0': '❌ Не активна',
-            '1': '⚡ Активна (подключена)',
-            '2': '🔋 Зарядка в процессе',
-            '3': '✅ Зарядка завершена',
-            '4': '⏸️ Приостановлена',
+    def _parse_charger_state(self, state_code: str) -> str:
+        """Парсит состояние зарядного устройства с учетом контекста"""
+
+        # Получаем данные о зарядке для проверки контекста
+        ev_status = self.data.get('additionalVehicleStatus', {}).get('electricVehicleStatus', {})
+
+        # 1. Проверяем общий статус зарядки (chargeSts)
+        # Если chargeSts == '3', это обычно означает "Зарядка завершена"
+        charge_sts = ev_status.get('chargeSts', '0')
+        if str(charge_sts) == '3':
+            return "✅ Зарядка завершена"
+
+        # 2. Если код состояния '3' (обычно DC), проверяем, не закончилась ли она
+        if str(state_code) == '3':
+            dc_sts = ev_status.get('dcChargeSts', '0')
+            time_to_charge = int(float(ev_status.get('timeToFullyCharged', 2047)))
+
+            # Если DC не активна (не '2') И время заряда прошло (0) -> значит зарядка завершена
+            if str(dc_sts) != '2' and time_to_charge == 0:
+                return "✅ Зарядка завершена"
+
+        state_map = {
+            '0': '❌ Отключено',
+            '1': '🔌 Подключено (ожидание)',
+            '2': '⚡ Зарядка (AC)',  # Или Предзарядка, если это фаза 2
+            '3': '⚡ Зарядка (DC)',
+            '4': '🔄 Уравнивание',
+            '5': '✅ Завершено',
+            '15': '⚙️ Готово',
         }
-        return status_map.get(str(status_code), f'❓ Неизвестно ({status_code})')
+
+        return state_map.get(str(state_code), f"⏳ Состояние {state_code}")
 
     def _parse_dc_dc_status(self, status_code: str) -> str:
         """Парсит статус DC/DC конвертера (преобразует 400В в 12В)"""
