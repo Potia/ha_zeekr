@@ -1,11 +1,9 @@
 # custom_components/zeekr/sensor.py
 """Sensor platform for Zeekr integration"""
 
-import logging
+iimport logging
 from typing import Any, Dict
 from datetime import datetime
-
-from homeassistant.components.device_tracker.const import SOURCE_TYPE_GPS
 
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -939,63 +937,49 @@ class ZeekrLongitudeSensor(ZeekrBaseSensor):
 
 # ==================== 📍 ТРЕКЕР МЕСТОПОЛОЖЕНИЯ ====================
 
-class ZeekrLocationTracker(CoordinatorEntity):  # ✅ Наследуемся только от CoordinatorEntity
-    """Трекер местоположения автомобиля (GPS).
-    Home Assistant автоматически определит этот класс как трекер благодаря свойствам latitude и longitude."""
+class ZeekrLocationTracker(CoordinatorEntity):
+    """Сущность местоположения (GPS).
+    HA автоматически отобразит её на карте благодаря свойствам latitude/longitude."""
 
     def __init__(self, coordinator: ZeekrDataCoordinator, vin: str):
         super().__init__(coordinator)
         self.vin = vin
-
-        # Уникальный ID для трекера
+        # Уникальный ID для сущности
         self._attr_unique_id = f"{DOMAIN}_{vin}_location"
-
-        # Имя устройства (опционально)
         self._attr_name = "Местоположение"
 
     @property
-    def latitude(self) -> float:
-        """Возвращает широту в градусах"""
+    def latitude(self) -> float | None:
         parser = self._get_parser()
         if parser:
-            position = parser.get_position_info()
-            raw_lat = float(position.get('latitude', 0))
-
-            # Формула перевода сырых данных Zeekr (секунды * 1000) в градусы
+            pos = parser.get_position_info()
+            raw_lat = float(pos.get('latitude', 0))
             return raw_lat / 3600000.0 if raw_lat != 0 else None
         return None
 
     @property
-    def longitude(self) -> float:
-        """Возвращает долготу в градусах"""
+    def longitude(self) -> float | None:
         parser = self._get_parser()
         if parser:
-            position = parser.get_position_info()
-            raw_lon = float(position.get('longitude', 0))
-
-            # Формула перевода сырых данных Zeekr (секунды * 1000) в градусы
+            pos = parser.get_position_info()
+            raw_lon = float(pos.get('longitude', 0))
             return raw_lon / 3600000.0 if raw_lon != 0 else None
         return None
 
     @property
-    def source_type(self):  # ✅ Важно: возвращаем константу SOURCE_TYPE_GPS
-        """Указываем, что источник GPS"""
-        return SOURCE_TYPE_GPS
+    def source_type(self) -> str:
+        """Явно указываем тип источника данных для карты"""
+        return 'gps'
 
     @property
     def extra_state_attributes(self):
-        """Дополнительные атрибуты (например, высота или статус сигнала)"""
+        attrs = {}
         parser = self._get_parser()
         if parser:
-            position = parser.get_position_info()
-            attrs = {}
-
-            # Можно добавить высоту из сенсора ZeekrAltitudeSensor
-            if 'altitude' in position:
-                attrs['Высота (м)'] = int(position['altitude'])
-
-            return attrs
-        return {}
+            pos = parser.get_position_info()
+            if 'altitude' in pos and float(pos['altitude']) > 0:
+                attrs["Высота (м)"] = int(float(pos['altitude']))
+        return attrs or None
 
 class ZeekrAltitudeSensor(ZeekrBaseSensor):
     """Высота над уровнем моря"""
