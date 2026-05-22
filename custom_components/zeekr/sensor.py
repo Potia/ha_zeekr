@@ -937,11 +937,13 @@ class ZeekrLongitudeSensor(ZeekrBaseSensor):
 
 # ==================== 📍 ТРЕКЕР МЕСТОПОЛОЖЕНИЯ ====================
 
+# ==================== 📍 ТРЕКЕР МЕСТОПОЛОЖЕНИЯ ====================
+
 class ZeekrLocationTracker(CoordinatorEntity):
     """Сущность местоположения (GPS).
     HA автоматически отобразит её на карте благодаря свойствам latitude/longitude."""
 
-    def __init__(self, coordinator, vin: str):
+    def __init__(self, coordinator: ZeekrDataCoordinator, vin: str):
         super().__init__(coordinator)
         self.vin = vin
 
@@ -952,31 +954,37 @@ class ZeekrLocationTracker(CoordinatorEntity):
     @property
     def latitude(self) -> float | None:
         """Возвращает широту"""
-        # Берем данные напрямую из координатора, минуя _get_parser()
-        raw_lat = self.coordinator.data.get('latitude', 0)
+        # 1. Получаем данные именно для этого VIN из координатора
+        vin_data = self.coordinator.data.get(self.vin)
 
-        if raw_lat is not None and str(raw_lat).strip() != '':
-            try:
-                val = float(raw_lat)
-                # Формула перевода сырых данных Zeekr (секунды * 1000) в градусы
-                return val / 3600000.0
-            except ValueError:
-                pass
-        return None
+        if not vin_data or 'latitude' not in vin_data:
+            return None
+
+        raw_lat = vin_data['latitude']
+
+        try:
+            val = float(raw_lat)
+            # Формула перевода сырых данных Zeekr (секунды * 1000) в градусы
+            return val / 3600000.0
+        except (ValueError, TypeError):
+            return None
 
     @property
     def longitude(self) -> float | None:
         """Возвращает долготу"""
-        raw_lon = self.coordinator.data.get('longitude', 0)
+        vin_data = self.coordinator.data.get(self.vin)
 
-        if raw_lon is not None and str(raw_lon).strip() != '':
-            try:
-                val = float(raw_lon)
-                # Формула перевода сырых данных Zeekr (секунды * 1000) в градусы
-                return val / 3600000.0
-            except ValueError:
-                pass
-        return None
+        if not vin_data or 'longitude' not in vin_data:
+            return None
+
+        raw_lon = vin_data['longitude']
+
+        try:
+            val = float(raw_lon)
+            # Формула перевода сырых данных Zeekr (секунды * 1000) в градусы
+            return val / 3600000.0
+        except (ValueError, TypeError):
+            return None
 
     @property
     def source_type(self) -> str:
@@ -987,14 +995,15 @@ class ZeekrLocationTracker(CoordinatorEntity):
     def extra_state_attributes(self):
         """Дополнительные атрибуты (например, высота или статус сигнала)"""
         attrs = {}
+        vin_data = self.coordinator.data.get(self.vin)
 
-        # Берем данные напрямую из координатора
-        data = self.coordinator.data
+        if not vin_data:
+            return None
 
         # Проверяем наличие высоты в данных
-        if 'altitude' in data and float(data['altitude']) > 0:
+        if 'altitude' in vin_data and float(vin_data['altitude']) > 0:
             try:
-                attrs["Высота (м)"] = int(float(data['altitude']))
+                attrs["Высота (м)"] = int(float(vin_data['altitude']))
             except ValueError:
                 pass
 
