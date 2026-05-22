@@ -36,11 +36,15 @@ class ZeekrBaseSensor(CoordinatorEntity, SensorEntity):
     """Base class for Zeekr sensors"""
 
     def __init__(self, coordinator: ZeekrDataCoordinator, vin: str):
+        """Initialize sensor"""
         super().__init__(coordinator)
         self.vin = vin
         self._attr_has_entity_name = True
+
+        # Уникальный ID для каждого датчика
         self._attr_unique_id = f"{DOMAIN}_{vin}_{self._get_sensor_type()}"
 
+        # Информация об устройстве
         self._attr_device_info = {
             "identifiers": {(DOMAIN, vin)},
             "name": f"Zeekr {vin}",
@@ -49,15 +53,18 @@ class ZeekrBaseSensor(CoordinatorEntity, SensorEntity):
         }
 
     def _get_sensor_type(self) -> str:
+        """Override in subclasses"""
         return "sensor"
 
     def _get_parser(self) -> VehicleDataParser:
+        """Get parser for current vehicle data"""
         if self.vin not in self.coordinator.data:
             return None
         return VehicleDataParser(self.coordinator.data[self.vin])
 
     @callback
     def _handle_coordinator_update(self) -> None:
+        """Handle updated data from coordinator"""
         self.async_write_ha_state()
 
 
@@ -935,80 +942,6 @@ class ZeekrLongitudeSensor(ZeekrBaseSensor):
         return None
 
 
-# ==================== 📍 ТРЕКЕР МЕСТОПОЛОЖЕНИЯ ====================
-
-# ==================== 📍 ТРЕКЕР МЕСТОПОЛОЖЕНИЯ ====================
-
-class ZeekrLocationTracker(CoordinatorEntity):
-    """Сущность местоположения (GPS).
-    HA автоматически отобразит её на карте благодаря свойствам latitude/longitude."""
-
-    def __init__(self, coordinator: ZeekrDataCoordinator, vin: str):
-        super().__init__(coordinator)
-        self.vin = vin
-
-        # Уникальный ID для сущности
-        self._attr_unique_id = f"{DOMAIN}_{vin}_location"
-        self._attr_name = "Местоположение"
-
-    @property
-    def latitude(self) -> float | None:
-        """Возвращает широту"""
-        # 1. Получаем данные именно для этого VIN из координатора
-        vin_data = self.coordinator.data.get(self.vin)
-
-        if not vin_data or 'latitude' not in vin_data:
-            return None
-
-        raw_lat = vin_data['latitude']
-
-        try:
-            val = float(raw_lat)
-            # Формула перевода сырых данных Zeekr (секунды * 1000) в градусы
-            return val / 3600000.0
-        except (ValueError, TypeError):
-            return None
-
-    @property
-    def longitude(self) -> float | None:
-        """Возвращает долготу"""
-        vin_data = self.coordinator.data.get(self.vin)
-
-        if not vin_data or 'longitude' not in vin_data:
-            return None
-
-        raw_lon = vin_data['longitude']
-
-        try:
-            val = float(raw_lon)
-            # Формула перевода сырых данных Zeekr (секунды * 1000) в градусы
-            return val / 3600000.0
-        except (ValueError, TypeError):
-            return None
-
-    @property
-    def source_type(self) -> str:
-        """Указываем, что источник GPS"""
-        return 'gps'
-
-    @property
-    def extra_state_attributes(self):
-        """Дополнительные атрибуты (например, высота или статус сигнала)"""
-        attrs = {}
-        vin_data = self.coordinator.data.get(self.vin)
-
-        if not vin_data:
-            return None
-
-        # Проверяем наличие высоты в данных
-        if 'altitude' in vin_data and float(vin_data['altitude']) > 0:
-            try:
-                attrs["Высота (м)"] = int(float(vin_data['altitude']))
-            except ValueError:
-                pass
-
-        return attrs if attrs else None
-
 class ZeekrAltitudeSensor(ZeekrBaseSensor):
     """Высота над уровнем моря"""
 
@@ -1480,10 +1413,9 @@ async def async_setup_entry(
             ZeekrDriverHeatingStatusSensor(coordinator, vin),
             ZeekrPassengerHeatingStatusSensor(coordinator, vin),
 
-
-            # 📍 Координаты (Теперь один трекер вместо двух сенсоров)
-            ZeekrLocationTracker(coordinator, vin),
-            # Оставляем высоту как отдельный сенсор, если нужно
+            # 📍 Координаты
+            ZeekrLatitudeSensor(coordinator, vin),
+            ZeekrLongitudeSensor(coordinator, vin),
             ZeekrAltitudeSensor(coordinator, vin),
 
             # 🔐 Информация
