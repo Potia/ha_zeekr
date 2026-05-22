@@ -1099,7 +1099,73 @@ class ZeekrDCDCStatusSensor(ZeekrBaseSensor):
             }
         return {}
 
+# ==================== ⚡ ЗАРЯДКА AC (МЕДЛЕННАЯ) ====================
 
+class ZeekrACChargeVoltageSensor(ZeekrBaseSensor):
+    """Напряжение медленной зарядки (AC)"""
+
+    _attr_name = "Напряжение AC зарядки"
+    _attr_native_unit_of_measurement = "V"
+    _attr_icon = "mdi:flash"
+    _attr_device_class = SensorDeviceClass.VOLTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def _get_sensor_type(self) -> str:
+        return "ac_charge_voltage"
+
+    @property
+    def native_value(self) -> float:
+        """Вернуть напряжение AC зарядки"""
+        parser = self._get_parser()
+        if parser:
+            charging = parser.get_ac_charging_info()
+            return round(charging['ac_voltage'], 1)
+        return None
+
+
+class ZeekrACChargeCurrentSensor(ZeekrBaseSensor):
+    """Ток медленной зарядки (AC)"""
+
+    _attr_name = "Ток AC зарядки"
+    _attr_native_unit_of_measurement = "A"
+    _attr_icon = "mdi:lightning-bolt"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def _get_sensor_type(self) -> str:
+        return "ac_charge_current"
+
+    @property
+    def native_value(self) -> float:
+        """Вернуть ток AC зарядки"""
+        parser = self._get_parser()
+        if parser:
+            charging = parser.get_ac_charging_info()
+            return round(charging['ac_current'], 1)
+        return None
+
+
+class ZeekrACChargePowerSensor(ZeekrBaseSensor):
+    """Мощность медленной зарядки (AC) - рассчитывается как V * I"""
+
+    _attr_name = "Мощность AC зарядки"
+    _attr_native_unit_of_measurement = "kW"
+    _attr_icon = "mdi:lightning-bolt"
+    _attr_device_class = SensorDeviceClass.POWER
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def _get_sensor_type(self) -> str:
+        return "ac_charge_power"
+
+    @property
+    def native_value(self) -> float:
+        """Вернуть мощность AC зарядки"""
+        parser = self._get_parser()
+        if parser:
+            charging = parser.get_ac_charging_info()
+            # Если ток или напряжение 0, значит зарядка не идет
+            if charging['ac_voltage'] > 0 and charging['ac_current'] > 0:
+                return round((charging['ac_voltage'] * charging['ac_current']) / 1000, 2)
+        return None
 # ==================== РАЗРЯДКА (V2L, V2H) ====================
 
 class ZeekrDischargePowerSensor(ZeekrBaseSensor):
@@ -1421,12 +1487,17 @@ async def async_setup_entry(
             # 🔐 Информация
             ZeekrPropulsionTypeSensor(coordinator, vin),
 
-            # ⚡ Зарядка
+            # ⚡ Зарядка (DC - Быстрая)
             ZeekrDCChargePowerSensor(coordinator, vin),
             ZeekrDCChargeVoltageExtendedSensor(coordinator, vin),
             ZeekrDCChargeCurrentExtendedSensor(coordinator, vin),
             ZeekrDCChargeStatusDetailedSensor(coordinator, vin),
             ZeekrDCDCStatusSensor(coordinator, vin),
+
+            # ⚡ ЗАРЯДКА AC (Медленная) - ДОБАВИТЬ СЮДА
+            ZeekrACChargeVoltageSensor(coordinator, vin),
+            ZeekrACChargeCurrentSensor(coordinator, vin),
+            ZeekrACChargePowerSensor(coordinator, vin),
 
             # ⚡ РАЗРЯДКА V2L/V2H
             ZeekrDischargePowerSensor(coordinator, vin),

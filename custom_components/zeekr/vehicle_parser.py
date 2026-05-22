@@ -176,6 +176,19 @@ class VehicleDataParser:
         }
         return status_map.get(str(status_code), 'Неизвестно')
 
+    def get_ac_charging_info(self) -> Dict[str, Any]:
+        """Получить информацию о медленной зарядке"""
+        ev_status = self.data.get('additionalVehicleStatus', {}).get('electricVehicleStatus', {})
+
+        # chargeUAct - Напряжение (V), chargeIAct - Ток (A)
+        voltage = float(ev_status.get('chargeUAct', 0))
+        current = float(ev_status.get('chargeIAct', 0))
+
+        return {
+            'ac_voltage': voltage,
+            'ac_current': current,
+            # Можно добавить статус зарядки, если нужно: ev_status.get('chargeSts')
+        }
     # ==================== ТЕМПЕРАТУРА ====================
 
     def get_temperature_info(self) -> Dict[str, Any]:
