@@ -75,7 +75,7 @@ class ZeekrDeviceTracker(CoordinatorEntity, TrackerEntity):
         parser = self._get_parser()
         if parser:
             position = parser.get_position_info()
-            return position['latitude']
+            return position['latitude']/0.36
         return None
 
     @property
@@ -84,7 +84,7 @@ class ZeekrDeviceTracker(CoordinatorEntity, TrackerEntity):
         parser = self._get_parser()
         if parser:
             position = parser.get_position_info()
-            return position['longitude']
+            return position['longitude']/0.36
         return None
 
     @property
