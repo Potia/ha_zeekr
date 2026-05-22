@@ -43,7 +43,7 @@ class ZeekrDeviceTracker(CoordinatorEntity, TrackerEntity):
 
     _attr_has_entity_name = True
     _attr_name = "Location"
-    _attr_icon = "mdi:map-marker"
+    _attr_icon = "mdi:car-side"
     _attr_source_type = SourceType.GPS
 
     def __init__(self, coordinator: ZeekrDataCoordinator, vin: str):
