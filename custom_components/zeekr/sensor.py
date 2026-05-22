@@ -918,7 +918,7 @@ class ZeekrLatitudeSensor(ZeekrBaseSensor):
         parser = self._get_parser()
         if parser:
             position = parser.get_position_info()
-            return round(position['latitude'], 6)
+            return round(position['latitude'], 6) /1000/3600
         return None
 
 
@@ -938,7 +938,7 @@ class ZeekrLongitudeSensor(ZeekrBaseSensor):
         parser = self._get_parser()
         if parser:
             position = parser.get_position_info()
-            return round(position['longitude'], 6)
+            return round(position['longitude'], 6) /1000/3600
         return None
 
 
