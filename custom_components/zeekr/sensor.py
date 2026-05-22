@@ -1300,8 +1300,8 @@ class ZeekrGpsStatusSensor(ZeekrBaseSensor):
                 'Есть_сигнал': gps['has_gps_signal'],
                 'Координаты_достоверны': gps['coordinates_trusted'],
                 'Передача_местоположения': gps['location_upload_enabled'],
-                'Широта': gps['latitude'],
-                'Долгота': gps['longitude'],
+                'Широта': gps['latitude']/0.36,
+                'Долгота': gps['longitude']/0.36,
             }
         return {}
 
