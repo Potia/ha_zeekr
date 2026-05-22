@@ -1,7 +1,7 @@
 # custom_components/zeekr/sensor.py
 """Sensor platform for Zeekr integration"""
 
-iimport logging
+import logging
 from typing import Any, Dict
 from datetime import datetime
 
