@@ -28,6 +28,27 @@ class VehicleDataParser:
             return round(power_kw, 1)
         return 0.0
 
+    def _parse_dc_charge_status(self, status_code: str) -> str:
+        """Парсит статус DC зарядки"""
+        status_map = {
+            '0': '❌ Не активна',
+            '1': '⚡ Активна (подключена)',
+            '2': '🔋 Зарядка в процессе',
+            '3': '✅ Зарядка завершена',
+            '4': '⏸️ Приостановлена',
+        }
+        return status_map.get(str(status_code), f'❓ Неизвестно ({status_code})')
+
+    def _parse_dc_dc_status(self, status_code: str) -> str:
+        """Парсит статус DC/DC конвертера (преобразует 400В в 12В)"""
+        status_map = {
+            '0': '❌ Отключен',
+            '1': '🔄 Переход',
+            '2': '⚠️ Ошибка',
+            '3': '✅ Включен и работает',
+        }
+        return status_map.get(str(status_code), f'❓ Неизвестно ({status_code})')
+
     def _parse_charger_state(self, state_code: str) -> str:
         """Парсит состояние зарядного устройства с учетом контекста"""
 
@@ -60,29 +81,6 @@ class VehicleDataParser:
         }
 
         return state_map.get(str(state_code), f"⏳ Состояние {state_code}")
-
-    def _parse_dc_dc_status(self, status_code: str) -> str:
-        """Парсит статус DC/DC конвертера (преобразует 400В в 12В)"""
-        status_map = {
-            '0': '❌ Отключен',
-            '1': '🔄 Переход',
-            '2': '⚠️ Ошибка',
-            '3': '✅ Включен и работает',
-        }
-        return status_map.get(str(status_code), f'❓ Неизвестно ({status_code})')
-
-    def _parse_charger_state(self, state_code: str) -> str:
-        """Парсит состояние зарядного устройства"""
-        state_map = {
-            '0': '❌ Отключено',
-            '1': '🔌 Подключено (ожидание)',
-            '2': '⚡ Зарядка (AC)',
-            '3': '⚡ Зарядка (DC)',
-            '4': '🔄 Уравнивание',
-            '5': '✅ Завершено',
-            '15': '⚙️ Готово',
-        }
-        return state_map.get(str(state_code), f'⏳ Состояние {state_code}')
 
     def __init__(self, raw_data: Dict[str, Any]):
         """Инициализация парсера"""

@@ -1362,12 +1362,16 @@ class ZeekrGpsStatusSensor(ZeekrBaseSensor):
         parser = self._get_parser()
         if parser:
             gps = parser.get_gps_status()
+            lat_val = gps.get('latitude')
+            lon_val = gps.get('longitude')
+
             return {
-                'Есть_сигнал': gps['has_gps_signal'],
-                'Координаты_достоверны': gps['coordinates_trusted'],
-                'Передача_местоположения': gps['location_upload_enabled'],
-                'Широта': gps['latitude']/0.36,
-                'Долгота': gps['longitude']/0.36,
+                'Есть_сигнал': gps.get('has_gps_signal'),
+                'Координаты_достоверны': gps.get('coordinates_trusted'),
+                'Передача_местоположения': gps.get('location_upload_enabled'),
+                # Делим только если значение не None, иначе возвращаем None
+                'Широта': round(lat_val / 0.36, 6) if lat_val is not None else None,
+                'Долгота': round(lon_val / 0.36, 6) if lon_val is not None else None,
             }
         return {}
 
