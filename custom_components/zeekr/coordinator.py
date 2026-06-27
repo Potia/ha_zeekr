@@ -61,8 +61,8 @@ class ZeekrDataCoordinator(DataUpdateCoordinator):
                 if success and status:
                     vehicles_data[vin] = status
 
-                    # 🔥 АСИНХРОННО сохраняем ответ
-                    await self._async_save_response_to_file(vin, status)
+                    # 🔥 АСИНХРОННО сохраняем ответ в файл JSON
+                    # await self._async_save_response_to_file(vin, status)
                 else:
                     _LOGGER.warning(f"Failed to fetch status for {vin}")
 
