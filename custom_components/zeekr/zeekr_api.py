@@ -232,25 +232,3 @@ class ZeekrAPI:
             _LOGGER.error("Ошибка HTTP-запроса: %s", e)
             return False, None
 
-    def get_all_vehicles_status(self) -> Tuple[bool, Optional[Dict[str, Dict]]]:
-        """
-        Получает статус всех автомобилей пользователя
-
-        Returns:
-            Кортеж (успешность, словарь {VIN: статус} или None)
-        """
-        _LOGGER.debug("Получение статуса всех автомобилей")
-
-        # Сначала получаем список VIN
-        success, vehicles = self.get_vehicles()
-        if not success or not vehicles:
-            return False, None
-
-        # Затем получаем статус каждого
-        all_status = {}
-        for vin in vehicles:
-            success, status = self.get_vehicle_status(vin)
-            if success and status:
-                all_status[vin] = status
-
-        return True, all_status if all_status else None
