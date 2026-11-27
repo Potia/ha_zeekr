@@ -9,6 +9,7 @@ import json
 import uuid
 import hashlib
 import random
+import logging
 from typing import Optional, Dict, Tuple
 from datetime import datetime
 from .zeekr_config import (
@@ -17,6 +18,8 @@ from .zeekr_config import (
     REGION_CODE, BASE_URL_SECURE, HMAC_SECRET
 )
 from .zeekr_storage import token_storage
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class ZeekrAuth:
@@ -94,7 +97,7 @@ class ZeekrAuth:
         Returns:
             Кортеж (успешность, сообщение)
         """
-        print(f"\n📱 Запрашиваю SMS код на номер {mobile}...")
+        _LOGGER.debug("Запрашиваю SMS-код (номер оканчивается на %s)", mobile[-4:])
 
         timestamp = str(int(datetime.now().timestamp() * 1000))
         nonce = int(random.random() * 1e8)
@@ -117,15 +120,15 @@ class ZeekrAuth:
             data = response.json()
 
             if data.get('code') == '000000':
-                print("✅ SMS код отправлен!")
+                _LOGGER.info("SMS-код отправлен")
                 return True, "SMS код отправлен успешно"
             else:
                 error_msg = data.get('message', 'Неизвестная ошибка')
-                print(f"❌ Ошибка: {error_msg}")
+                _LOGGER.error("SMS не отправлен: %s", error_msg)
                 return False, error_msg
 
         except requests.exceptions.RequestException as e:
-            print(f"❌ Ошибка при отправке запроса: {e}")
+            _LOGGER.error("Ошибка HTTP-запроса: %s", e)
             return False, str(e)
 
     def login_with_sms(self, mobile: str, sms_code: str) -> Tuple[bool, Optional[Dict]]:
@@ -139,7 +142,7 @@ class ZeekrAuth:
         Returns:
             Кортеж (успешность, словарь с токенами или None)
         """
-        print(f"\n🔐 Пытаюсь авторизоваться с SMS кодом...")
+        _LOGGER.debug("Авторизация по SMS-коду")
 
         timestamp = str(int(datetime.now().timestamp() * 1000))
         nonce = int(random.random() * 1e8)
@@ -175,15 +178,15 @@ class ZeekrAuth:
                     'device_id': self.device_id,
                 }
                 self.mobile = mobile  # Сохраняем мобильный
-                print("✅ Авторизация успешна!")
+                _LOGGER.info("Авторизация по SMS успешна")
                 return True, tokens
             else:
                 error_msg = data.get('message', 'Неизвестная ошибка')
-                print(f"❌ Ошибка авторизации: {error_msg}")
+                _LOGGER.error("Ошибка авторизации по SMS: %s", error_msg)
                 return False, None
 
         except requests.exceptions.RequestException as e:
-            print(f"❌ Ошибка при запросе: {e}")
+            _LOGGER.error("Ошибка HTTP-запроса: %s", e)
             return False, None
 
     def get_auth_code(self, jwt_token: str) -> Tuple[bool, Optional[str]]:
@@ -196,7 +199,7 @@ class ZeekrAuth:
         Returns:
             Кортеж (успешность, Auth Code или None)
         """
-        print(f"\n🔑 Получаю Auth Code...")
+        _LOGGER.debug("Получаю Auth Code")
 
         timestamp = str(int(datetime.now().timestamp() * 1000))
         nonce = int(random.random() * 1e8)
@@ -223,18 +226,18 @@ class ZeekrAuth:
             if data.get('code') == '000000':
                 auth_code = data.get('data', {}).get('YIKAT_NEW')
                 if auth_code:
-                    print(f"✅ Auth Code получен: {auth_code[:20]}...")
+                    _LOGGER.debug("Auth Code получен (len=%s)", len(auth_code))
                     return True, auth_code
                 else:
-                    print("❌ Auth Code не найден в ответе")
+                    _LOGGER.error("Auth Code не найден в ответе")
                     return False, None
             else:
                 error_msg = data.get('message', 'Неизвестная ошибка')
-                print(f"❌ Ошибка получения Auth Code: {error_msg}")
+                _LOGGER.error("Ошибка получения Auth Code: %s", error_msg)
                 return False, None
 
         except requests.exceptions.RequestException as e:
-            print(f"❌ Ошибка при запросе: {e}")
+            _LOGGER.error("Ошибка HTTP-запроса: %s", e)
             return False, None
 
     def login_with_auth_code(self, auth_code: str) -> Tuple[bool, Optional[Dict]]:
@@ -248,10 +251,8 @@ class ZeekrAuth:
         Returns:
             Кортеж (успешность, словарь с полными токенами или None)
         """
-        print(f"\n🔐 Авторизуюсь с Auth Code...")
+        _LOGGER.debug("Авторизация с Auth Code")
 
-        import hmac
-        import base64
         from urllib.parse import urlencode
 
         timestamp = str(int(datetime.now().timestamp() * 1000))
@@ -293,7 +294,7 @@ class ZeekrAuth:
             '/auth/account/session/secure',
         ])
 
-        print(f"[DEBUG] String to sign:\n{string_to_sign}\n")
+        _LOGGER.debug("[auth] canonical string сформирован")
 
         # Подписываем HMAC-SHA1
         signature = base64.b64encode(
@@ -304,7 +305,7 @@ class ZeekrAuth:
             ).digest()
         ).decode()
 
-        print(f"[DEBUG] Signature: {signature}\n")
+        _LOGGER.debug("[auth] подпись вычислена")
 
         # Готовим заголовки как для SECURE API с подписью
         headers = {
@@ -333,8 +334,7 @@ class ZeekrAuth:
             # Построим URL с параметрами
             full_url = f"{url}?{query_string}"
 
-            print(f"[DEBUG] Full URL: {full_url}")
-            print(f"[DEBUG] Body: {body}")
+            _LOGGER.debug("[auth] POST %s (body: authCode, не логируется)", url)
 
             response = self.session.post(
                 full_url,
@@ -343,10 +343,11 @@ class ZeekrAuth:
                 timeout=REQUEST_TIMEOUT
             )
 
-            print(f"[DEBUG] Response status: {response.status_code}")
+            _LOGGER.debug("[auth] HTTP status %s", response.status_code)
 
             data = response.json()
-            print(f"[DEBUG] Ответ от auth/account/session/secure: {json.dumps(data, indent=2, ensure_ascii=False)}")
+            # К3: в ответе лежат accessToken/refreshToken — в лог только код/сообщение
+            _LOGGER.debug("[auth] session/secure: code=%s message=%s", data.get("code"), data.get("message"))
 
             if data.get('code') == 1000 or str(data.get('code')) == '1000':
                 session_data = data.get('data', {})
@@ -359,13 +360,13 @@ class ZeekrAuth:
                     'mobile': self.mobile if self.mobile else '',
                     'device_id': self.device_id,
                 }
-                print("✅ Авторизация с Auth Code успешна!")
+                _LOGGER.info("Авторизация с Auth Code успешна")
                 return True, tokens
             else:
                 error_msg = data.get('message', 'Неизвестная ошибка')
-                print(f"❌ Ошибка авторизации с Auth Code: {error_msg}")
+                _LOGGER.error("Ошибка авторизации с Auth Code: %s", error_msg)
                 return False, None
 
         except requests.exceptions.RequestException as e:
-            print(f"❌ Ошибка при запросе: {e}")
+            _LOGGER.error("Ошибка HTTP-запроса: %s", e)
             return False, None

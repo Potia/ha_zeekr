@@ -4,8 +4,15 @@
 Парсер данных автомобиля - извлечение и форматирование информации
 ОБНОВЛЕНО: Правильная интерпретация панорамной крыши (затемняющей шторки)
 """
+import logging
 from typing import Dict, Any, Optional
 from datetime import datetime
+
+# API отдаёт координаты, домноженными на 1e7 * COORD_SCALE (кварк Geely/Zeekr).
+# Масштабирование выполняется здесь; потребители получают градусы или None.
+COORD_SCALE = 0.36
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class VehicleDataParser:
@@ -231,12 +238,16 @@ class VehicleDataParser:
         latitude_raw = position.get('latitude', '')
         longitude_raw = position.get('longitude', '')
 
+        # К5: нет координат — None (unknown), а не 0.0 (Null Island)
+        latitude = None
+        longitude = None
         if latitude_raw and longitude_raw:
-            latitude = int(latitude_raw) / 1e7
-            longitude = int(longitude_raw) / 1e7
-        else:
-            latitude = 0.0
-            longitude = 0.0
+            try:
+                latitude = int(latitude_raw) / 1e7 / COORD_SCALE
+                longitude = int(longitude_raw) / 1e7 / COORD_SCALE
+            except (TypeError, ValueError):
+                latitude = None
+                longitude = None
 
         return {
             'latitude': latitude,
@@ -257,8 +268,8 @@ class VehicleDataParser:
             'gps_status': '✅ GPS активен' if has_gps else '❌ GPS потерян',
             'coordinates_trusted': position.get('posCanBeTrusted') == 'true',
             'location_upload_enabled': position.get('carLocatorStatUploadEn') == 'true',
-            'latitude': float(position.get('latitude', 0)) / 1e7 if position.get('latitude') else None,
-            'longitude': float(position.get('longitude', 0)) / 1e7 if position.get('longitude') else None,
+            'latitude': float(position['latitude']) / 1e7 / COORD_SCALE if position.get('latitude') else None,
+            'longitude': float(position['longitude']) / 1e7 / COORD_SCALE if position.get('longitude') else None,
             'altitude': int(position.get('altitude', 0)) if position.get('altitude') else None,
         }
 
@@ -696,7 +707,7 @@ class VehicleDataParser:
 
         # Шаг 2: Проверяем, пуста ли строка
         if not park_time_str or park_time_str == '':
-            print("[DEBUG] parkTime пуста - машина не припаркована")
+            _LOGGER.debug("parkTime пуста — машина не припаркована")
             return {
                 'is_parked': False,
                 'parked_since': None,
@@ -706,7 +717,7 @@ class VehicleDataParser:
         try:
             park_time_ms = int(park_time_str)
         except (ValueError, TypeError) as e:
-            print(f"[ERROR] Не могу преобразовать parkTime в число: {park_time_str} - {e}")
+            _LOGGER.warning("Не могу преобразовать parkTime в число: %s — %s", park_time_str, e)
             return {
                 'is_parked': False,
                 'parked_since': None,
@@ -742,7 +753,7 @@ class VehicleDataParser:
             else:
                 duration_str = f"{minutes}м"
 
-            print(f"[DEBUG] Припаркована {duration_str}")
+            _LOGGER.debug("Припаркована %s", duration_str)
 
             return {
                 'is_parked': True,
@@ -751,7 +762,7 @@ class VehicleDataParser:
                 'total_seconds': total_seconds,
             }
         except Exception as e:
-            print(f"[ERROR] Ошибка при расчете времени парковки: {e}")
+            _LOGGER.warning("Ошибка при расчёте времени парковки: %s", e)
             return {
                 'is_parked': False,
                 'parked_since': None,

@@ -75,7 +75,8 @@ class ZeekrDeviceTracker(CoordinatorEntity, TrackerEntity):
         parser = self._get_parser()
         if parser:
             position = parser.get_position_info()
-            return position['latitude']/0.36
+            # К5: масштаб ÷0.36 применён в парсере; None -> unknown
+            return position['latitude']
         return None
 
     @property
@@ -83,8 +84,7 @@ class ZeekrDeviceTracker(CoordinatorEntity, TrackerEntity):
         """Return longitude"""
         parser = self._get_parser()
         if parser:
-            position = parser.get_position_info()
-            return position['longitude']/0.36
+            return position['longitude']
         return None
 
     @property
