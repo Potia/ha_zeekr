@@ -8,7 +8,7 @@ VERSION = "1.0.0"
 CONF_MOBILE = "mobile"
 CONF_SMS_CODE = "sms_code"
 
-DEFAULT_SCAN_INTERVAL = 300  # 5 минут
+DEFAULT_SCAN_INTERVAL = 60  # 1 минута
 
 # Атрибуты
 ATTR_VIN = "vin"

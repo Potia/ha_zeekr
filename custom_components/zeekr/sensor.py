@@ -209,7 +209,7 @@ class ZeekrAuxBatteryPercentageSensor(ZeekrBaseSensor):
     _attr_name = "12V батарея"
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_icon = "mdi:battery-12v"
-    _attr_device_class = SensorDeviceClass.BATTERY
+    #_attr_device_class = SensorDeviceClass.BATTERY
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def _get_sensor_type(self) -> str:
