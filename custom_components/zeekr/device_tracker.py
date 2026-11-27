@@ -15,7 +15,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import ZeekrDataCoordinator
-from vehicle_parser import VehicleDataParser
+from .vehicle_parser import VehicleDataParser
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,7 +66,6 @@ class ZeekrDeviceTracker(CoordinatorEntity, TrackerEntity):
         """Get parser for current vehicle data"""
         if self.vin not in self.coordinator.data:
             return None
-        from vehicle_parser import VehicleDataParser
         return VehicleDataParser(self.coordinator.data[self.vin])
 
     @property

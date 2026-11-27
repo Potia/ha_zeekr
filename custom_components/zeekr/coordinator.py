@@ -2,22 +2,16 @@
 """Data Coordinator для Zeekr интеграции"""
 
 import logging
-import sys
 import os
 import json
 from datetime import timedelta, datetime
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-# Добавляем путь для импорта
-current_dir = os.path.dirname(__file__)
-if current_dir not in sys.path:
-    sys.path.insert(0, current_dir)
-
-# Импортируем после добавления пути
-from const import DOMAIN, DEFAULT_SCAN_INTERVAL
+# В3: относительные импорты вместо sys.path-хака (конфликт с другими custom components)
+from .const import DOMAIN, DEFAULT_SCAN_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 class ZeekrDataCoordinator(DataUpdateCoordinator):
     """Class to manage fetching Zeekr data from API"""
 
-    def __init__(self, hass: HomeAssistant, api_client, responses_dir: str = None):
+    def __init__(self, hass: HomeAssistant, api_client, responses_dir: Optional[str] = None):
         """Initialize the coordinator."""
         super().__init__(
             hass,
