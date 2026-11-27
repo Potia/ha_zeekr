@@ -38,23 +38,23 @@ class VehicleDataParser:
     def _parse_dc_charge_status(self, status_code: str) -> str:
         """Парсит статус DC зарядки"""
         status_map = {
-            '0': '❌ Не активна',
-            '1': '⚡ Активна (подключена)',
-            '2': '🔋 Зарядка в процессе',
-            '3': '✅ Зарядка завершена',
-            '4': '⏸️ Приостановлена',
+            '0': 'Не активна',
+            '1': 'Подключена',
+            '2': 'Идёт зарядка',
+            '3': 'Завершена',
+            '4': 'Приостановлена',
         }
-        return status_map.get(str(status_code), f'❓ Неизвестно ({status_code})')
+        return status_map.get(str(status_code), f'Неизвестно ({status_code})')
 
     def _parse_dc_dc_status(self, status_code: str) -> str:
         """Парсит статус DC/DC конвертера (преобразует 400В в 12В)"""
         status_map = {
-            '0': '❌ Отключен',
-            '1': '🔄 Переход',
-            '2': '⚠️ Ошибка',
-            '3': '✅ Включен и работает',
+            '0': 'Отключен',
+            '1': 'Переход',
+            '2': 'Ошибка',
+            '3': 'Активен',
         }
-        return status_map.get(str(status_code), f'❓ Неизвестно ({status_code})')
+        return status_map.get(str(status_code), f'Неизвестно ({status_code})')
 
     def _parse_charger_state(self, state_code: str) -> str:
         """Парсит состояние зарядного устройства с учетом контекста"""
@@ -66,7 +66,7 @@ class VehicleDataParser:
         # Если chargeSts == '3', это обычно означает "Зарядка завершена"
         charge_sts = ev_status.get('chargeSts', '0')
         if str(charge_sts) == '3':
-            return "✅ Зарядка завершена"
+            return "Зарядка завершена"
 
         # 2. Если код состояния '3' (обычно DC), проверяем, не закончилась ли она
         if str(state_code) == '3':
@@ -75,19 +75,19 @@ class VehicleDataParser:
 
             # Если DC не активна (не '2') И время заряда прошло (0) -> значит зарядка завершена
             if str(dc_sts) != '2' and time_to_charge == 0:
-                return "✅ Зарядка завершена"
+                return "Зарядка завершена"
 
         state_map = {
-            '0': '❌ Отключено',
-            '1': '🔌 Подключено (ожидание)',
-            '2': '⚡ Зарядка (AC)',  # Или Предзарядка, если это фаза 2
-            '3': '⚡ Зарядка (DC)',
-            '4': '🔄 Уравнивание',
-            '5': '✅ Завершено',
-            '15': '⚙️ Готово',
+            '0': 'Отключено',
+            '1': 'Подключено, ожидание',
+            '2': 'Зарядка AC',  # Или Предзарядка, если это фаза 2
+            '3': 'Зарядка DC',
+            '4': 'Уравнивание',
+            '5': 'Завершено',
+            '15': 'Готово',
         }
 
-        return state_map.get(str(state_code), f"⏳ Состояние {state_code}")
+        return state_map.get(str(state_code), f"Неизвестно ({state_code})")
 
     def __init__(self, raw_data: Dict[str, Any]):
         """Инициализация парсера"""
@@ -102,7 +102,7 @@ class VehicleDataParser:
     def get_engine_status(self) -> str:
         """Получает статус двигателя"""
         status = self.data.get('basicVehicleStatus', {}).get('engineStatus', 'unknown')
-        return '✅ Работает' if status == 'engine_running' else '❌ Выключен'
+        return 'Работает' if status == 'engine_running' else 'Выключен'
 
     def get_last_update_time(self) -> str:
         """Получает время последнего обновления"""
@@ -139,10 +139,10 @@ class VehicleDataParser:
         activated = int(theft.get('activated', 0))
 
         status_map = {
-            0: '❌ Отключена',
-            1: '⚠️ Активируется',
-            2: '🔒 Включена (ожидание)',
-            3: '🔒 АКТИВНА И РАБОТАЕТ 🚨',
+            0: 'Отключена',
+            1: 'Активируется',
+            2: 'Поставлена на охрану',
+            3: 'Активна',
         }
 
         return {
@@ -184,10 +184,10 @@ class VehicleDataParser:
     def _parse_hv_temp_level(self, level_code: str) -> str:
         """Переводит уровень температуры батареи"""
         temp_map = {
-            '0': 'Теплая 🔥',
-            '1': 'Немного холодная ❄️',
-            '2': 'Холодная 🥶',
-            '3': 'Сильно холодная 🧊',
+            '0': 'Тёплая',
+            '1': 'Прохладная',
+            '2': 'Холодная',
+            '3': 'Очень холодная',
         }
         return temp_map.get(str(level_code), 'Неизвестно')
 
@@ -265,7 +265,7 @@ class VehicleDataParser:
 
         return {
             'has_gps_signal': has_gps,
-            'gps_status': '✅ GPS активен' if has_gps else '❌ GPS потерян',
+            'gps_status': 'GPS активен' if has_gps else 'GPS потерян',
             'coordinates_trusted': position.get('posCanBeTrusted') == 'true',
             'location_upload_enabled': position.get('carLocatorStatUploadEn') == 'true',
             'latitude': float(position['latitude']) / 1e7 / COORD_SCALE if position.get('latitude') else None,
@@ -407,17 +407,17 @@ class VehicleDataParser:
             Текстовое описание состояния
         """
         if position >= 100:
-            return '☀️ ПОЛНОСТЬЮ ПРОЗРАЧНА (максимум света, видно небо)'
+            return 'Полностью прозрачна'
         elif position >= 75:
-            return '🌞 Прозрачна на 75% (много света)'
+            return 'Прозрачна на 75%'
         elif position >= 50:
-            return '🌤️ Прозрачна на 50% (средний свет)'
+            return 'Прозрачна на 50%'
         elif position >= 25:
-            return '🌥️ Прозрачна на 25% (немного света)'
+            return 'Прозрачна на 25%'
         elif position > 0:
-            return '⚫ Закрывается (слабый свет)'
+            return 'Затемнена (слабый свет)'
         else:
-            return '🌙 ПОЛНОСТЬЮ ЗАТЕМНЕНА (не видно небо)'
+            return 'Полностью затемнена'
 
     def _get_roof_description(self, front_open: bool, front_pos: int, rear_open: bool, rear_pos: int) -> str:
         """
@@ -511,10 +511,10 @@ class VehicleDataParser:
         Парсит уровень жидкостей (тормоз, охлаждающая)
         """
         level_map = {
-            '0': 'Полный 🟢',
-            '1': 'Хороший 🟢',
-            '2': 'Нормально 🟢',
-            '3': 'Полный 🟢',
+            '0': 'Полный',
+            '1': 'Хороший',
+            '2': 'Нормальный',
+            '3': 'Низкий',
         }
         return level_map.get(str(level_code), f'Уровень {level_code}')
 
@@ -524,8 +524,8 @@ class VehicleDataParser:
         (может быть инверсная логика у Zeekr)
         """
         level_map = {
-            '0': 'Полный ✅',
-            '1': 'Низкий 🔴',
+            '0': 'Полный',
+            '1': 'Низкий',
         }
         return level_map.get(str(level_code), f'Уровень {level_code}')
 
@@ -567,15 +567,15 @@ class VehicleDataParser:
 
     def _parse_speed_validity(self, validity: str) -> str:
         """Парсит достоверность скорости"""
-        return '✅ Достоверна' if validity == 'true' else '⚠️ Недостоверна'
+        return 'Достоверна' if validity == 'true' else 'Недостоверна'
 
     def _parse_gear_status(self, gear_code: str) -> str:
         """Парсит статус коробки передач"""
         gear_map = {
-            '0': '❌ Выключена',
-            '1': '✅ Автоматическая включена',
-            '2': '🔧 Мануальная включена',
-            '3': '⏸️ Режим удержания / Нейтраль',
+            '0': 'Выключена',
+            '1': 'Авто включён',
+            '2': 'Ручной режим',
+            '3': 'Удержание / Нейтраль',
         }
         return gear_map.get(str(gear_code), 'Неизвестно')
 
@@ -596,8 +596,8 @@ class VehicleDataParser:
     def _parse_stop_light_status(self, status: str) -> str:
         """Парсит статус стоп-сигналов"""
         status_map = {
-            '0': '✅ Выключены (едет или свободно)',
-            '1': '🔴 ВКЛЮЧЕНЫ - ТОРМОЗИТ',
+            '0': 'Выключены',
+            '1': 'Тормозит',
         }
         return status_map.get(str(status), 'Неизвестно')
 
@@ -629,15 +629,15 @@ class VehicleDataParser:
         stop = bool(int(running.get('stopLi', 0)))
 
         if stop:
-            return '🔴 ТОРМОЗИТ'
+            return 'Тормозит'
         elif hi_beam:
-            return '🔆 Дальний свет'
+            return 'Дальний свет'
         elif lo_beam:
-            return '💡 Ближний свет'
+            return 'Ближний свет'
         elif drl:
-            return '☀️ Дневные огни'
+            return 'Дневные огни'
         else:
-            return '⚫ Огни выключены (день или припаркован)'
+            return 'Огни выключены'
 
     # ==================== ЗАГРЯЗНЕНИЕ ====================
 
@@ -655,12 +655,12 @@ class VehicleDataParser:
     def _parse_pm25_level(self, level_code: str) -> str:
         """Переводит уровень PM2.5"""
         level_map = {
-            '0': 'Отличный 🟢',
-            '1': 'Хороший 🟢',
-            '2': 'Умеренный 🟡',
-            '3': 'Плохой 🟠',
-            '4': 'Очень плохой 🔴',
-            '5': 'Критичный 🚨',
+            '0': 'Отличный',
+            '1': 'Хороший',
+            '2': 'Умеренный',
+            '3': 'Плохой',
+            '4': 'Очень плохой',
+            '5': 'Критический',
         }
         return level_map.get(str(level_code), 'Неизвестно')
 
@@ -675,15 +675,15 @@ class VehicleDataParser:
         alerts = []
 
         if interior_pm25 > 300:
-            alerts.append(f"🚨 КРИТИЧНОЕ: PM2.5 = {interior_pm25} мкг/м³ (норма < 35)")
+            alerts.append(f"Критическое загрязнение: PM2.5 = {interior_pm25} мкг/м³ (норма < 35)")
         elif interior_pm25 > 100:
-            alerts.append(f"⚠️ ОЧЕНЬ ПЛОХО: PM2.5 = {interior_pm25} мкг/м³")
+            alerts.append(f"Очень плохое качество воздуха: PM2.5 = {interior_pm25} мкг/м³")
 
         if interior_level == 5:
-            alerts.append("🔴 Уровень загрязнения: ОЧЕНЬ ПЛОХО")
+            alerts.append("Уровень загрязнения: очень высокий")
 
         if humidity > 100:
-            alerts.append(f"⚠️ Ошибка датчика влажности: {humidity}% (невозможно!)")
+            alerts.append(f"Ошибка датчика влажности: {humidity}%")
 
         return {
             'alerts': alerts,
@@ -835,7 +835,7 @@ class VehicleDataParser:
             'speed': speed,
             'current_charge': charge_level,
             'is_recovering': is_braking and speed > 0,
-            'recovery_status': '⚡ ВОССТАНОВЛЕНИЕ ЭНЕРГИИ' if (is_braking and speed > 0) else 'Нет восстановления',
+            'recovery_status': 'Рекуперация' if (is_braking and speed > 0) else 'Нет восстановления',
         }
 
     def get_ahbc_status(self) -> str:
@@ -851,27 +851,27 @@ class VehicleDataParser:
             additional = self.data.get('data', {}).get('additionalVehicleStatus')
 
         if not additional:
-            return "Ошибка: нет additionalVehicleStatus"
+            return None
 
         # 2. Пробуем получить runningStatus
         running = additional.get('runningStatus')
         if not running:
-            return "Ошибка: нет runningStatus"
+            return None
 
         # 3. Ищем значение ahbc
         ahbc_val = running.get('ahbc')
 
         # Если ключа нет совсем
         if ahbc_val is None:
-            return "Ошибка: ключ ahbc не найден"
+            return None
 
         # 4. Преобразуем в строку и проверяем
         val_str = str(ahbc_val).strip()
 
         if val_str == '0':
-            return "Включена"  # Значение 0
+            return "Выключен"  # 0 = off
         elif val_str == '1':
-            return "Выключена"  # Значение 1
+            return "Включен"   # 1 = on
 
         # Если пришло что-то странное (не 0 и не 1), покажем это
-        return f"Неизвестно (значение: {val_str})"
+        return f"Неизвестно ({val_str})"

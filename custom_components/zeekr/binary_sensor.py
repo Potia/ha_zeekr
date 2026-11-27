@@ -61,7 +61,7 @@ async def async_setup_entry(
         ])
 
     async_add_entities(entities)
-    _LOGGER.info(f"✅ Added {len(entities)} binary sensors total")
+    _LOGGER.info(f"Added %s binary sensors", len(entities))
 
 
 # ==================== БАЗОВЫЙ КЛАСС ====================
@@ -107,7 +107,7 @@ class ZeekrBaseBinarySensor(CoordinatorEntity, BinarySensorEntity):
 class ZeekrEngineStatusSensor(ZeekrBaseBinarySensor):
     """Engine status binary sensor"""
 
-    _attr_name = "Engine"
+    _attr_name = "Двигатель"
     _attr_device_class = BinarySensorDeviceClass.RUNNING
     _attr_icon = "mdi:engine"
 
@@ -127,7 +127,7 @@ class ZeekrEngineStatusSensor(ZeekrBaseBinarySensor):
 class ZeekrDriverDoorSensor(ZeekrBaseBinarySensor):
     """Driver door binary sensor"""
 
-    _attr_name = "Driver Door"
+    _attr_name = "Водительская дверь"
     _attr_device_class = BinarySensorDeviceClass.DOOR
     _attr_icon = "mdi:door"
 
@@ -147,7 +147,7 @@ class ZeekrDriverDoorSensor(ZeekrBaseBinarySensor):
 class ZeekrPassengerDoorSensor(ZeekrBaseBinarySensor):
     """Passenger door binary sensor"""
 
-    _attr_name = "Passenger Door"
+    _attr_name = "Пассажирская дверь (перед)"
     _attr_device_class = BinarySensorDeviceClass.DOOR
     _attr_icon = "mdi:door"
 
@@ -167,7 +167,7 @@ class ZeekrPassengerDoorSensor(ZeekrBaseBinarySensor):
 class ZeekrDriverRearDoorSensor(ZeekrBaseBinarySensor):
     """Driver rear door binary sensor"""
 
-    _attr_name = "Driver Rear Door"
+    _attr_name = "Водительская дверь (зад)"
     _attr_device_class = BinarySensorDeviceClass.DOOR
     _attr_icon = "mdi:door"
 
@@ -187,7 +187,7 @@ class ZeekrDriverRearDoorSensor(ZeekrBaseBinarySensor):
 class ZeekrPassengerRearDoorSensor(ZeekrBaseBinarySensor):
     """Passenger rear door binary sensor"""
 
-    _attr_name = "Passenger Rear Door"
+    _attr_name = "Пассажирская дверь (зад)"
     _attr_device_class = BinarySensorDeviceClass.DOOR
     _attr_icon = "mdi:door"
 
@@ -207,7 +207,7 @@ class ZeekrPassengerRearDoorSensor(ZeekrBaseBinarySensor):
 class ZeekrTrunkSensor(ZeekrBaseBinarySensor):
     """Trunk binary sensor"""
 
-    _attr_name = "Trunk"
+    _attr_name = "Багажник"
     _attr_device_class = BinarySensorDeviceClass.DOOR
     _attr_icon = "mdi:car-door"
 
@@ -260,7 +260,7 @@ class ZeekrDriverWindowSensor(ZeekrBaseBinarySensor):
         parser = self._get_parser()
         if parser:
             windows = parser.get_windows_info()
-            return windows['driver_window'] == 'Открыто'
+            return windows['driver_window'] not in ('Закрыто', 'Неизвестно')
         return False
 
 
@@ -280,7 +280,7 @@ class ZeekrPassengerWindowSensor(ZeekrBaseBinarySensor):
         parser = self._get_parser()
         if parser:
             windows = parser.get_windows_info()
-            return windows['passenger_window'] == 'Открыто'
+            return windows['passenger_window'] not in ('Закрыто', 'Неизвестно')
         return False
 
 
@@ -300,7 +300,7 @@ class ZeekrDriverRearWindowSensor(ZeekrBaseBinarySensor):
         parser = self._get_parser()
         if parser:
             windows = parser.get_windows_info()
-            return windows['driver_rear_window'] == 'Открыто'
+            return windows['driver_rear_window'] not in ('Закрыто', 'Неизвестно')
         return False
 
 
@@ -320,7 +320,7 @@ class ZeekrPassengerRearWindowSensor(ZeekrBaseBinarySensor):
         parser = self._get_parser()
         if parser:
             windows = parser.get_windows_info()
-            return windows['passenger_rear_window'] == 'Открыто'
+            return windows['passenger_rear_window'] not in ('Закрыто', 'Неизвестно')
         return False
 
 
@@ -329,7 +329,7 @@ class ZeekrPassengerRearWindowSensor(ZeekrBaseBinarySensor):
 class ZeekrFrontShadeOpenSensor(ZeekrBaseBinarySensor):
     """Передняя затемняющая шторка открыта?"""
 
-    _attr_name = "Front Shade Open"
+    _attr_name = "Шторка панорамы (перед)"
     _attr_icon = "mdi:window-shutter"
     _attr_device_class = BinarySensorDeviceClass.WINDOW
 
@@ -349,7 +349,7 @@ class ZeekrFrontShadeOpenSensor(ZeekrBaseBinarySensor):
 class ZeekrRearShadeOpenSensor(ZeekrBaseBinarySensor):
     """Задняя затемняющая шторка открыта?"""
 
-    _attr_name = "Rear Shade Open"
+    _attr_name = "Шторка панорамы (зад)"
     _attr_icon = "mdi:window-shutter"
     _attr_device_class = BinarySensorDeviceClass.WINDOW
 
@@ -369,7 +369,7 @@ class ZeekrRearShadeOpenSensor(ZeekrBaseBinarySensor):
 class ZeekrRoofTransparentSensor(ZeekrBaseBinarySensor):
     """Крыша пропускает свет? (шторка открыта более чем на 50%)"""
 
-    _attr_name = "Roof Transparent"
+    _attr_name = "Крыша прозрачная"
     _attr_icon = "mdi:window"
     _attr_device_class = BinarySensorDeviceClass.WINDOW
 
@@ -390,7 +390,7 @@ class ZeekrRoofTransparentSensor(ZeekrBaseBinarySensor):
 class ZeekrGpsActiveSensor(ZeekrBaseBinarySensor):
     """GPS активен?"""
 
-    _attr_name = "GPS Active"
+    _attr_name = "GPS активен"
     _attr_icon = "mdi:satellite-variant"
 
     def _get_sensor_type(self) -> str:
@@ -411,7 +411,7 @@ class ZeekrGpsActiveSensor(ZeekrBaseBinarySensor):
 class ZeekrBrakingSensor(ZeekrBaseBinarySensor):
     """Машина тормозит? (восстановление энергии)"""
 
-    _attr_name = "Braking"
+    _attr_name = "Торможение"
     _attr_icon = "mdi:brake-fluid"
 
     def _get_sensor_type(self) -> str:
@@ -430,7 +430,7 @@ class ZeekrBrakingSensor(ZeekrBaseBinarySensor):
 class ZeekrEnergyRecoveryActiveSensor(ZeekrBaseBinarySensor):
     """Рекуперативное торможение активно?"""
 
-    _attr_name = "Energy Recovery Active"
+    _attr_name = "Рекуперация"
     _attr_icon = "mdi:lightning-bolt"
 
     def _get_sensor_type(self) -> str:

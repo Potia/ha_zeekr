@@ -40,7 +40,7 @@ async def async_setup_entry(
 
     # 🎯 ОДНОРАЗОВО добавляем все сущности
     async_add_entities(entities)
-    _LOGGER.info(f"✅ Added {len(entities)} buttons")
+    _LOGGER.info(f"Added %s buttons", len(entities))
 
 
 class ZeekrRefreshButton(CoordinatorEntity, ButtonEntity):
@@ -69,13 +69,13 @@ class ZeekrRefreshButton(CoordinatorEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         """Вызывается когда пользователь нажимает на кнопку"""
-        _LOGGER.info("🔄 [REFRESH] Принудительное обновление всех автомобилей...")
+        _LOGGER.info("[REFRESH] Принудительное обновление всех автомобилей...")
 
         try:
             await self.coordinator.async_refresh()
-            _LOGGER.info("✅ [REFRESH] Обновление завершено успешно!")
+            _LOGGER.info("[REFRESH] Обновление завершено успешно!")
         except Exception as e:
-            _LOGGER.error(f"❌ [REFRESH] Ошибка при обновлении: {e}")
+            _LOGGER.error(f"[REFRESH] Ошибка при обновлении: {e}")
             raise
 
 
@@ -106,13 +106,13 @@ class ZeekrRefreshVehicleButton(CoordinatorEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         """Вызывается когда пользователь нажимает на кнопку"""
-        _LOGGER.info(f"🔄 [REFRESH] Принудительное обновление для {self.vin}...")
+        _LOGGER.info(f"[REFRESH] Принудительное обновление для {self.vin}...")
 
         try:
             await self.coordinator.async_refresh()
-            _LOGGER.info(f"✅ [REFRESH] Обновление для {self.vin} завершено!")
+            _LOGGER.info(f"[REFRESH] Обновление для {self.vin} завершено!")
         except Exception as e:
-            _LOGGER.error(f"❌ [REFRESH] Ошибка при обновлении {self.vin}: {e}")
+            _LOGGER.error(f"[REFRESH] Ошибка при обновлении {self.vin}: {e}")
             raise
 
     @callback
