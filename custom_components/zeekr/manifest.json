@@ -5,7 +5,7 @@
   "config_flow": true,
   "documentation": "https://github.com/Potia/ha_zeekr",
   "requirements": [],
-  "version": "1.0.2",
+  "version": "1.0.40.0",
   "issue_tracker": "https://github.com/Potia/ha_zeekr/issues",
   "homeassistant": "2023.12.0"
 }

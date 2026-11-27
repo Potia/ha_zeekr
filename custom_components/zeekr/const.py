@@ -3,7 +3,7 @@
 
 DOMAIN = "zeekr"
 NAME = "Zeekr"
-VERSION = "1.0.0"
+VERSION = "1.0.40.0"
 
 CONF_MOBILE = "mobile"
 CONF_SMS_CODE = "sms_code"

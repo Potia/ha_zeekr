@@ -45,21 +45,11 @@ Thumbs.db
 .directory
 
 # Project specific
-auth.py
-zeekr_api.py
-vehicle_parser.py
-storage.py
-config.py
-scheduler.py
-main.py
-debug_output.py
-requirements.txt
 .env
 *.log
 
 # Git
 .git/
-.gitignore
 # Игнорировать настройки PyCharm
 .idea/
 

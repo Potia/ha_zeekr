@@ -124,13 +124,6 @@ class VehicleDataParser:
         prop_type = self.data.get('configuration', {}).get('propulsionType', '0')
         return propulsion_map.get(str(prop_type), 'Неизвестно')
 
-    def get_is_moving(self) -> bool:
-        """Определяет едет ли автомобиль прямо сейчас"""
-        basic = self.data.get('basicVehicleStatus', {})
-        speed = float(basic.get('speed', 0))
-        speed_valid = basic.get('speedValidity', 'false') == 'true'
-        return speed > 0 and speed_valid
-
     def get_theft_and_security_status(self) -> Dict[str, Any]:
         """Получает информацию об охране и защите от кражи"""
         theft = self.data.get('theftNotification', {})
