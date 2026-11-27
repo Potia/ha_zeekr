@@ -10,6 +10,7 @@ from datetime import datetime
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import ConfigEntryNotReady
 
 from .const import DOMAIN
 from .zeekr_api import ZeekrAPI
@@ -58,7 +59,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # Создаем папку для ответов
         try:
-            responses_dir = os.path.join(hass.config.path('www'), 'zeekr_responses')
+            # К4: НЕ внутри www/ — содержимое www отдаётся HA без авторизации
+            responses_dir = hass.config.path('zeekr_responses')
             os.makedirs(responses_dir, exist_ok=True)
             _LOGGER.info(f"📁 Responses directory: {responses_dir}")
         except Exception as e:
@@ -76,12 +78,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Создаем coordinator
         coordinator = ZeekrDataCoordinator(hass, api_client, responses_dir)
 
-        # Получаем первые данные
-        try:
-            await coordinator.async_config_entry_first_refresh()
-            _LOGGER.info("✅ First data refresh successful")
-        except Exception as e:
-            _LOGGER.warning(f"⚠️ First refresh failed: {e}")
+        # К6: при недоступном API ConfigEntryNotReady уходит наверх —
+        # HA сам повторит setup позже, вместо мёртвых платформ на coordinator.data=None
+        await coordinator.async_config_entry_first_refresh()
+        _LOGGER.info("✅ First data refresh successful")
 
         # Сохраняем coordinator
         hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
@@ -96,6 +96,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.info("🎉 Zeekr integration setup COMPLETE!")
         return True
 
+    except ConfigEntryNotReady:
+        raise
     except Exception as err:
         _LOGGER.error(f"❌ Error setting up Zeekr: {err}", exc_info=True)
         return False

@@ -158,17 +158,36 @@ class ZeekrBatterySensor(ZeekrBaseSensor):
 
 
 class ZeekrTheftProtectionSensor(ZeekrBaseSensor):
-    """Сенсор защиты от кражи (AHBC)"""
+    """Режим охраны из theftNotification (К1: раньше сюда ошибочно подавался AHBC)"""
 
-    _attr_name = "Режим охраны"  # Имя в интерфейсе
-    _attr_icon = "mdi:shield-check"  # Иконка щита
+    _attr_name = "Режим охраны"
+    _attr_icon = "mdi:shield-check"
 
+    # unique_id оставлен историческим, чтобы не плодить сироты в реестре HA
     def _get_sensor_type(self) -> str:
         return "theft_protection_ahbc"
 
     @property
     def native_value(self) -> str:
-        """Возвращает статус: Включена/Выключена"""
+        """Статус охраны из theftNotification"""
+        parser = self._get_parser()
+        if parser:
+            return parser.get_theft_and_security_status()["theft_protection"]
+        return "Недоступно"
+
+
+class ZeekrAHBCStatusSensor(ZeekrBaseSensor):
+    """Автодальний (AHBC) — вынесен из-под маски "режима охраны" """
+
+    _attr_name = "Автодальний (AHBC)"
+    _attr_icon = "mdi:lightbulb-auto"
+
+    def _get_sensor_type(self) -> str:
+        return "ahbc_status"
+
+    @property
+    def native_value(self) -> str:
+        """Статус автодальнего из runningStatus.ahbc"""
         parser = self._get_parser()
         if parser:
             return parser.get_ahbc_status()
@@ -804,7 +823,8 @@ class ZeekrExteriorPM25LevelSensor(ZeekrBaseSensor):
         parser = self._get_parser()
         if parser:
             pollution = parser.get_pollution_info()
-            return pollution['interior_pm25_level']
+            # К2: был copy-paste — сенсор "снаружи" возвращал салонный уровень
+            return pollution['exterior_pm25_level']
         return None
 
 # ==================== 🅿️ ПАРКОВКА ====================
@@ -918,7 +938,10 @@ class ZeekrLatitudeSensor(ZeekrBaseSensor):
         parser = self._get_parser()
         if parser:
             position = parser.get_position_info()
-            return round(position['latitude'], 6)/0.36
+            # К5: масштаб 1/0.36 теперь внутри парсера; None -> unknown
+            if position['latitude'] is None:
+                return None
+            return round(position['latitude'], 6)
         return None
 
 
@@ -938,7 +961,9 @@ class ZeekrLongitudeSensor(ZeekrBaseSensor):
         parser = self._get_parser()
         if parser:
             position = parser.get_position_info()
-            return round(position['longitude'], 6)/0.36
+            if position['longitude'] is None:
+                return None
+            return round(position['longitude'], 6)
         return None
 
 
@@ -1369,9 +1394,9 @@ class ZeekrGpsStatusSensor(ZeekrBaseSensor):
                 'Есть_сигнал': gps.get('has_gps_signal'),
                 'Координаты_достоверны': gps.get('coordinates_trusted'),
                 'Передача_местоположения': gps.get('location_upload_enabled'),
-                # Делим только если значение не None, иначе возвращаем None
-                'Широта': round(lat_val / 0.36, 6) if lat_val is not None else None,
-                'Долгота': round(lon_val / 0.36, 6) if lon_val is not None else None,
+                # Координаты уже масштабированы парсером (К5)
+                'Широта': round(lat_val, 6) if lat_val is not None else None,
+                'Долгота': round(lon_val, 6) if lon_val is not None else None,
             }
         return {}
 
@@ -1432,6 +1457,7 @@ async def async_setup_entry(
             ZeekrLastUpdateTimeSensor(coordinator, vin),
             ZeekrBatterySensor(coordinator, vin),
             ZeekrTheftProtectionSensor(coordinator, vin),
+            ZeekrAHBCStatusSensor(coordinator, vin),
             ZeekrElectricParkBrakeStatusSensor(coordinator, vin),
 
             # ==================== ОСНОВНЫЕ ДАТЧИКИ ====================

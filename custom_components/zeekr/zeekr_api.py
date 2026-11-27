@@ -8,6 +8,7 @@ import uuid
 import hmac
 import hashlib
 import base64
+import logging
 from typing import Optional, Dict, List, Tuple
 from datetime import datetime
 from urllib.parse import urlencode
@@ -16,6 +17,8 @@ from .zeekr_config import (
     PHONE_VERSION, REQUEST_TIMEOUT
 )
 from .zeekr_storage import token_storage
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class ZeekrAPI:
@@ -78,7 +81,7 @@ class ZeekrAPI:
             path,
         ])
 
-        print(f"[DEBUG] String to sign:\n{string_to_sign}\n")
+        _LOGGER.debug("[api] canonical string сформирован")
 
         # Подписываем HMAC-SHA1
         signature = base64.b64encode(
@@ -142,7 +145,7 @@ class ZeekrAPI:
         Returns:
             Кортеж (успешность, список VIN или None)
         """
-        print("\n🚗 Получаю список автомобилей...")
+        _LOGGER.debug("Запрашиваю список автомобилей")
 
         timestamp = str(int(datetime.now().timestamp() * 1000))
         nonce = str(uuid.uuid4()).upper()
@@ -169,15 +172,15 @@ class ZeekrAPI:
 
             if data.get('code') == '1000':
                 vehicles = [v['vin'] for v in data.get('data', {}).get('list', [])]
-                print(f"✅ Найдено {len(vehicles)} автомобилей: {vehicles}")
+                _LOGGER.debug("Найдено %s автомобилей", len(vehicles))
                 return True, vehicles
             else:
                 error_msg = data.get('message', 'Неизвестная ошибка')
-                print(f"❌ Ошибка получения автомобилей: {error_msg}")
+                _LOGGER.error("Ошибка получения списка автомобилей: %s", error_msg)
                 return False, None
 
         except requests.exceptions.RequestException as e:
-            print(f"❌ Ошибка при запросе: {e}")
+            _LOGGER.error("Ошибка HTTP-запроса: %s", e)
             return False, None
 
     def get_vehicle_status(self, vin: str) -> Tuple[bool, Optional[Dict]]:
@@ -190,7 +193,7 @@ class ZeekrAPI:
         Returns:
             Кортеж (успешность, словарь со статусом или None)
         """
-        print(f"\n📊 Получаю статус автомобиля {vin}...")
+        _LOGGER.debug("Запрашиваю статус автомобиля")
 
         timestamp = str(int(datetime.now().timestamp() * 1000))
         nonce = str(uuid.uuid4()).upper()
@@ -218,15 +221,15 @@ class ZeekrAPI:
 
             if data.get('code') == '1000':
                 vehicle_status = data.get('data', {}).get('vehicleStatus', {})
-                print(f"✅ Статус получен для {vin}")
+                _LOGGER.debug("Статус автомобиля получен")
                 return True, vehicle_status
             else:
                 error_msg = data.get('message', 'Неизвестная ошибка')
-                print(f"❌ Ошибка получения статуса: {error_msg} (код: {data.get('code')})")
+                _LOGGER.error("Ошибка получения статуса: %s (код: %s)", error_msg, data.get("code"))
                 return False, None
 
         except requests.exceptions.RequestException as e:
-            print(f"❌ Ошибка при запросе: {e}")
+            _LOGGER.error("Ошибка HTTP-запроса: %s", e)
             return False, None
 
     def get_all_vehicles_status(self) -> Tuple[bool, Optional[Dict[str, Dict]]]:
@@ -236,9 +239,7 @@ class ZeekrAPI:
         Returns:
             Кортеж (успешность, словарь {VIN: статус} или None)
         """
-        print("\n" + "=" * 50)
-        print("🔄 ПОЛУЧЕНИЕ СТАТУСА ВСЕХ АВТОМОБИЛЕЙ")
-        print("=" * 50)
+        _LOGGER.debug("Получение статуса всех автомобилей")
 
         # Сначала получаем список VIN
         success, vehicles = self.get_vehicles()
