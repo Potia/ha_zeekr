@@ -123,7 +123,7 @@ class ZeekrLastUpdateTimeSensor(ZeekrBaseSensor):
 
 
 class ZeekrBatterySensor(ZeekrBaseSensor):
-    """🔋 Заряд батареи"""
+    """Заряд батареи"""
 
     _attr_name = "Заряд батареи"
     _attr_native_unit_of_measurement = PERCENTAGE
@@ -212,9 +212,9 @@ class ZeekrElectricParkBrakeStatusSensor(ZeekrBaseSensor):
             status = int(safety.get('electricParkBrakeStatus', 0))
 
             status_map = {
-                0: '❌ Выключен',
-                1: '✅ Включен (парковка)',
-                2: '⚠️ Ошибка',
+                0: 'Выключен',
+                1: 'Включён (стояночный)',
+                2: 'Ошибка',
             }
             return status_map.get(status, 'Неизвестно')
         return None
@@ -569,7 +569,7 @@ class ZeekrHVTempLevelSensor(ZeekrBaseSensor):
             battery = parser.get_battery_info()
             return {
                 "Числовое значение": battery['hv_temp_level_numeric'],
-                "Значения": "1=теплая 🔥, 2=немного холодная ❄️, 3=холодная 🥶, 4=сильно холодная 🧊"
+                "Значения": "1=тёплая, 2=прохладная, 3=холодная, 4=очень холодная"
             }
         return {}
 
@@ -1550,4 +1550,4 @@ async def async_setup_entry(
         ])
 
     async_add_entities(entities)
-    _LOGGER.info(f"✅ Added {len(entities)} sensors total for {len(coordinator.data)} vehicles")
+    _LOGGER.info(f"Added %s sensors for %s vehicles", len(entities), len(coordinator.data))

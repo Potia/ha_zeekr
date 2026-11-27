@@ -149,7 +149,7 @@ class ZeekrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         errors={"base": "cannot_get_secure_tokens"},
                     )
 
-                _LOGGER.info("✅ Authentication successful!")
+                _LOGGER.info("Authentication successful")
 
                 # ✅ СОЗДАЕМ ENTRY С ТОКЕНАМИ
                 await self.async_set_unique_id("zeekr_main")
